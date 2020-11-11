@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Stresstest</title>
+        <script type="text/javascript">
+            var endpointToStress = "./?latitude=50.109&longitude=10.961";
+            //var endpointToStress = "./?latitude=50.109&longitude=10.961";
+            //var endpointToStress = "/hello";
+            function stressTest(){
+                for(var i=0; i<2;i++)
+                {
+                    fetch(endpointToStress)
+                    .then(response=>response.json())
+                    .then(data => console.info("Done with request"));
+                    console.info("Fetched " + i);
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h1>Stresstest</h1>
+        <p>
+            <button type="button" onclick="stressTest();">Start test</button>
+        </p>
+    </body>
+</html>

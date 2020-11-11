@@ -1,0 +1,8 @@
+venv/
+.vscode/
+.project
+.pydevproject
+__pycache__/
+config.ini
+coms/
+weather_data/
