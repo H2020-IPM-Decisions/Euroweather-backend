@@ -8,8 +8,8 @@ import sys
 
 SITE_ROOT = os.path.dirname(os.path.realpath(__file__))
 
-filename= SITE_ROOT + '/../weather_data/all.grib2'
-config= SITE_ROOT + '/cdmGribReaderConfig.xml'
+filename= SITE_ROOT + '/../weather_data/all.nc'
+#config= SITE_ROOT + '/cdmGribReaderConfig.xml'
 #print (filename, file =sys.stderr)
 param_mapping = {
     1001: "t2m",
@@ -27,7 +27,8 @@ interval = 3600 # Hourly values, always
 
 class Controller:
     def __init__(self):
-        start_time = time.time()
+        pass
+        #start_time = time.time()
         #self.ip = Interpolator(filename, config)
         #print("New Controller initialized. It took %s seconds." % (time.time() - start_time), file =sys.stderr)
 
@@ -38,9 +39,9 @@ class Controller:
         qc = [1 for p in parameters] # We trust Deutsche WetterDienst. Aber natürlich!
         
         retval = WeatherData(
-            weatherParameters=parameters, QC=qc, interval=3600
+            weatherParameters=parameters, interval=3600
             )
-        location_weather_data = LocationWeatherData(longitude=longitude, latitude=latitude)
+        location_weather_data = LocationWeatherData(longitude=longitude, latitude=latitude, QC=qc)
         
 
         # TESTING
@@ -60,7 +61,7 @@ class Controller:
         #return retval.as_dict()
 
         
-        print("Results:",res)
+        #print("Results:",res)
 
         first_epoch = res[0]["time"]
         last_epoch = res[len(res)-1]["time"]

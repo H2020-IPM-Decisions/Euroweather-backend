@@ -14,8 +14,8 @@ sem = threading.Semaphore()
 @app.route('/')
 def get_forecasts():
     #sem.acquire()
-    print("Thread_ident: %s" % str(threading.get_ident()));
-    print("get_forecasts() called")
+    #print("Thread_ident: %s" % str(threading.get_ident()));
+    #print("get_forecasts() called")
     longitude = request.args.get("longitude", None) # WGS84
     latitude = request.args.get("latitude", None) # WGS84
     parameters = request.args.get("parameters", None) # Comma separated list
@@ -32,11 +32,3 @@ def get_forecasts():
 
     return data
     #print(parameters)
-
-@app.route("/stresstest")
-def stresstest():
-    return render_template("stresstest.html")
-
-@app.route("/hello")
-def hello():
-    return "Hello";

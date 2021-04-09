@@ -1,20 +1,26 @@
 import pyfimex0
-import os.path
 import math
 import time # for testing
 
 class Interpolator():
-    def __init__(self,filename,config):
+    def __init__(self,filename):
         self.filename=filename;
-        self.config=config;
+        #self.config=config;
         if (self.filename==""):
-            self.filename='all.grib2';
-        if (self.config==""):
-            self.config='cdmGribReaderConfig.xml';
+            self.filename='all.nc';
+        #if (self.config==""):
+        #    self.config='cdmGribReaderConfig.xml';
         self.minutesOfTheHour = [0]; #     
         self.undef=9.969209968386869e+36;
-        self.reader = pyfimex0.createFileReader('grib2', self.filename, self.config)
+        self.reader = pyfimex0.createFileReader('nc', self.filename)
         self.interpolator = pyfimex0.createInterpolator(self.reader)
+        self.start = int(round(time.time() * 1000));
+        self.stamp=self.start;
+
+    def printTime(self,text):
+        stamp=int(round(time.time() * 1000));
+        print("%d (+% 3d)"%(stamp-self.start,stamp-self.stamp),") ",text);
+        self.stamp=stamp;
 
     def populate(self,llen,nlen):
         ret=[];
@@ -86,30 +92,28 @@ class Interpolator():
             plen=len(ivar);
             if (plen==1):
                 for jj in range(0,rlen):
-                    ret[jj][ii][name]=ivar[0];
+                    if (ivar[0] != self.undef):
+                        ret[jj][ii][name]=float(ivar[0]);
             else:
                 for jj in range(0,plen):
-                    ret[jj][ii][name]=ivar[jj];
+                    if (ivar[jj] != self.undef):
+                        ret[jj][ii][name]=float(ivar[jj]);
         return ret;
 
     # data is stored: ret=[<latlon1>,<latlon2>...<latlonn>], <latlon>=[<time1>...], <time>={var1:0,var2:0...}
     def interpolate(self,lats,lons):
+        if (len(lats) != len(lons) or len(lats)==0):
+            return [];
+        self.printTime("Processing");
         ook=[0,0,0];
         orm=[0,0,0];
-        start_time = time.time() ## REMOVE WHEN DONE WITH DEBUG
         self.interpolator.changeProjection(pyfimex0.InterpolationMethod.BILINEAR,
                                   lons, lats)
-        change_p_time = time.time()## REMOVE WHEN DONE WITH DEBUG
         self.cdm = self.interpolator.getCDM() # common data model
-        cdm_time = time.time()## REMOVE WHEN DONE WITH DEBUG
         self.nlen= self.cdm.getDimension('time').getLength();
-        get_time_time = time.time()## REMOVE WHEN DONE WITH DEBUG
-        
         ##self.nlen=2;
         self.llen= len(lons);
         frt = self.getData('forecast_reference_time',0);
-        get_data_ref_time = time.time()## REMOVE WHEN DONE WITH DEBUG
-        
         #print("Analysis time:",frt[0]);
         self.times=[];
         self.t2m=[];
@@ -144,7 +148,6 @@ class Interpolator():
                 print ("Unable to process time step ",ii);
                 orm[1]=orm[1]+1;
                 raise;
-        pre_post_process_time = time.time()
         # post process
         self.ff10m=self.getWindSpeed(self.u10m,self.v10m);
         self.rr= self.getRainRate(self.times,self.tp);
@@ -160,27 +163,6 @@ class Interpolator():
         #self.assignData(ret,self.v10m,"v10m");
         #self.assignData(ret,self.lat,"lat");
         #self.assignData(ret,self.lon,"lon");
-        print("Found ",ook[1]+orm[1]," times, kept ",ook[2]," (",round(100*ook[2]/(ook[1]+orm[1]),1),"%)");
-        prepare_data_time = time.time()## REMOVE WHEN DONE WITH DEBUG
-        ## REMOVE WHEN DONE WITH DEBUG
-        print("Change p took %s seconds, getCDM took % seconds, getTimeDim took %s seconds, getDataRefTime took %s seconds, getWeatherData took %s seconds, prepare data took % seconds" %(
-                    change_p_time - start_time,
-                    cdm_time - change_p_time,
-                    get_time_time - cdm_time,
-                    get_data_ref_time - get_time_time,
-                    pre_post_process_time - get_data_ref_time,
-                    prepare_data_time - pre_post_process_time
-        ))
+        #print("Found ",ook[1]+orm[1]," times, kept ",ook[2]," (",round(100*ook[2]/(ook[1]+orm[1]),1),"%)");
+        self.printTime("Done");
         return ret;
-
-"""filename='../weather_data/all.grib2';
-config='cdmGribReaderConfig.xml';
-ip=Interpolator(filename,config);
-
-lats = [50.109, 50.052, 50.0];
-lons = [10.965, 10.13, 10.5];
-lats=[50.109];
-lons = [10.965];
-res=ip.interpolate(lats,lons);
-print("Results:",res);
-"""

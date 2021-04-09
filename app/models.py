@@ -4,7 +4,6 @@ class WeatherData:
         self.timeStart = kwargs.get("timeStart", None)
         self.timeEnd = kwargs.get("timeEnd", None)
         self.interval = kwargs.get("interval", None)
-        self.QC = kwargs.get("QC", None)
         self.weatherParameters = kwargs.get("weatherParameters", None)
         self.locationWeatherData = []
 
@@ -23,6 +22,7 @@ class LocationWeatherData:
         self.altitude = kwargs.get("altitude", None)
         self.longitude = kwargs.get("longitude", None)
         self.latitude = kwargs.get("latitude", None)
+        self.QC = kwargs.get("QC", None)
         self.data = []
 
 
