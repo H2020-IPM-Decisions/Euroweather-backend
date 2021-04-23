@@ -117,6 +117,7 @@ start=time.time();
 last=start;
 ip.printTime("Starting");
 
+## Running it for one hour
 try:
     while(last - start < 3600):
         gk.process(ip);

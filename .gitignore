@@ -3,6 +3,7 @@ venv/
 .project
 .pydevproject
 __pycache__/
+app/lockfile
 config.ini
 coms/
 weather_data/

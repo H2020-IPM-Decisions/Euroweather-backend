@@ -1,21 +1,36 @@
+import os
+# sudo apt install python3-pyfimex0-1.5
 import pyfimex0
 import math
 import time # for testing
 
 class Interpolator():
     def __init__(self,filename):
+        self.start = int(round(time.time() * 1000));
+        self.stamp=self.start;
         self.filename=filename;
         #self.config=config;
         if (self.filename==""):
             self.filename='all.nc';
         #if (self.config==""):
         #    self.config='cdmGribReaderConfig.xml';
+        self.loadFile()
+
+    def loadFile(self):
+        self.printTime("Loading file "+self.filename);
         self.minutesOfTheHour = [0]; #     
         self.undef=9.969209968386869e+36;
         self.reader = pyfimex0.createFileReader('nc', self.filename)
         self.interpolator = pyfimex0.createInterpolator(self.reader)
-        self.start = int(round(time.time() * 1000));
-        self.stamp=self.start;
+        self.filetime=self.getFileTime(self.filename);
+
+    def getFileTime(self,filename):
+        stat = os.stat(filename);
+        return stat.st_mtime
+
+    def fileChanged(self):
+        newtime=self.getFileTime(self.filename);
+        return (newtime != self.filetime);
 
     def printTime(self,text):
         stamp=int(round(time.time() * 1000));
@@ -102,6 +117,9 @@ class Interpolator():
 
     # data is stored: ret=[<latlon1>,<latlon2>...<latlonn>], <latlon>=[<time1>...], <time>={var1:0,var2:0...}
     def interpolate(self,lats,lons):
+        # check if file has changed even if no requests were made...
+        if (self.fileChanged()):
+            self.loadFile();
         if (len(lats) != len(lons) or len(lats)==0):
             return [];
         self.printTime("Processing");
