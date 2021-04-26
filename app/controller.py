@@ -1,3 +1,18 @@
+#    Copyright (C) 2021  Tor-Einar Skog,  NIBIO
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from models import WeatherData, LocationWeatherData
 from interpolator import Interpolator
 from negotiator import Negotiator
@@ -9,7 +24,6 @@ import sys
 SITE_ROOT = os.path.dirname(os.path.realpath(__file__))
 
 filename= SITE_ROOT + '/../weather_data/all.nc'
-#config= SITE_ROOT + '/cdmGribReaderConfig.xml'
 #print (filename, file =sys.stderr)
 param_mapping = {
     1001: "t2m",

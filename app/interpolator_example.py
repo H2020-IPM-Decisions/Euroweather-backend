@@ -1,13 +1,23 @@
+#    Copyright (C) 2021  Frank Thomas Tveter, Met Norway
+# 
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
 #
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 # An example interpolator. Works with Deutsche Wetterdienst (DWD) data
 # Depending on FIMEX: https://github.com/metno/fimex
-#
-#
-#
 
 
 import os
-# sudo apt install python3-pyfimex0-1.5
 import pyfimex0
 import math
 import time # for testing
@@ -17,11 +27,8 @@ class Interpolator():
         self.start = int(round(time.time() * 1000));
         self.stamp=self.start;
         self.filename=filename;
-        #self.config=config;
         if (self.filename==""):
             self.filename='all.nc';
-        #if (self.config==""):
-        #    self.config='cdmGribReaderConfig.xml';
         self.loadFile()
 
     def loadFile(self):

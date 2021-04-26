@@ -109,7 +109,6 @@ class Gatekeeper():
 ######################################################
 lockfile="lockfile";
 filename='../weather_data/all.nc';
-#config='cdmGribReaderConfig.xml';
 ip=Interpolator(filename);
 gk=Gatekeeper("../coms",lockfile);
 mindelay=0.1; # seconds

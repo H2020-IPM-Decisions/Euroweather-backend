@@ -1,5 +1,4 @@
 import os
-# sudo apt install python3-pyfimex0-1.5
 import pyfimex0
 import math
 import time # for testing
@@ -9,11 +8,8 @@ class Interpolator():
         self.start = int(round(time.time() * 1000));
         self.stamp=self.start;
         self.filename=filename;
-        #self.config=config;
         if (self.filename==""):
             self.filename='all.nc';
-        #if (self.config==""):
-        #    self.config='cdmGribReaderConfig.xml';
         self.loadFile()
 
     def loadFile(self):
