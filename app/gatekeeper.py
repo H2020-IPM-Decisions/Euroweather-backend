@@ -117,9 +117,9 @@ start=time.time();
 last=start;
 ip.printTime("Starting");
 
-## Running it for one hour
+## Running it indefinitely
 try:
-    while(last - start < 3600):
+    while(True):
         gk.process(ip);
         current=time.time();
         delay=last+mindelay-current;
