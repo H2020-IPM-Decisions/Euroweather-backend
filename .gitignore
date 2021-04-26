@@ -7,3 +7,4 @@ app/lockfile
 config.ini
 coms/
 weather_data/
+app/interpolator.py
