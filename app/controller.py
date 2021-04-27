@@ -76,7 +76,8 @@ class Controller:
 
         
         #print("Results:",res)
-
+        if res == []:
+            return {}
         first_epoch = res[0]["time"]
         last_epoch = res[len(res)-1]["time"]
 

@@ -21,6 +21,7 @@ import time
 from random import random 
 import threading
 import json
+from custom_errors import NoDataAvailableError
 
 class Negotiator():
     def __init__(self,directory):
@@ -69,4 +70,4 @@ class Negotiator():
                 return spl;
             current=time.time();
             bdone=(current-start) > patience;
-        return [];
+        raise NoDataAvailableError

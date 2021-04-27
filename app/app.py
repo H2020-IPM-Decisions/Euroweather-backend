@@ -20,6 +20,7 @@ import threading
 import os
 
 from controller import Controller
+from custom_errors import NoDataAvailableError
 
 #os.environ["FIMEX_CHUNK_CACHE_SIZE"] = "218523238400" # TEST: See if this affects performance
 app = Flask(__name__)
@@ -42,8 +43,11 @@ def get_forecasts():
         return "BAD REQUEST: Error in specified weather parameters: %s" % e, 403
     
     #controller = Controller()
-    data = controller.get_weather_data(longitude, latitude, parameters)
-    #sem.release()
-
-    return data
+    try:
+        data = controller.get_weather_data(longitude, latitude, parameters)
+        #sem.release()
+    
+        return data
+    except NoDataAvailableError as e:
+        return "SERVICE UNAVAILABLE: Unfortunately, there is no data available at the moment.", 503
     #print(parameters)
