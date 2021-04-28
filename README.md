@@ -7,7 +7,7 @@ Current usage: Pulled from GitHub to build a Docker image of the following locat
 
 &copy; 2021 NIBIO and Met Norway
 
-Authors: Frank Thomas Tveter (Met Norway) and Tor-Einar Skog (NIBIO)
+Authors: Tor-Einar Skog (NIBIO) and Frank Thomas Tveter (Met Norway)
 
 ## License
 ```
