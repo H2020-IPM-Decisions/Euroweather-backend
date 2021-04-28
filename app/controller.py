@@ -53,7 +53,7 @@ class Controller:
         qc = [1 for p in parameters] # We trust Deutsche WetterDienst. Aber natürlich!
         
         retval = WeatherData(
-            weatherParameters=parameters, interval=3600
+            weatherParameters=parameters, interval=interval
             )
         location_weather_data = LocationWeatherData(longitude=longitude, latitude=latitude, QC=qc)
         
@@ -84,20 +84,31 @@ class Controller:
         retval.timeStart = "%sZ" % datetime.utcfromtimestamp(first_epoch).isoformat()
         retval.timeEnd = "%sZ" % datetime.utcfromtimestamp(last_epoch).isoformat()
 
-        data = [None] * (1 + int((last_epoch - first_epoch) / interval))
+        #data = [None] * (1 + int((last_epoch - first_epoch) / interval))
+        data = []
+        previous_time = first_epoch
         for time_paramdict in res:
             row_index = int((time_paramdict["time"] - first_epoch) / interval)
-            data[row_index] = [None] * len(parameters)
+            # If the interval changes from hourly to something else, 
+            # adjust timeEnd and stop adding data
+            if (row_index > 0) and (time_paramdict["time"] - previous_time > interval):
+                retval.timeEnd = "%sZ" % datetime.utcfromtimestamp(previous_time).isoformat()
+                break
+            data.append([None] * len(parameters))
+            #data[row_index] = 
             for idx, parameter in enumerate(parameters):
                 strval = time_paramdict.get(param_mapping[parameter], None)
                 value = float(strval) if strval is not None else None
+                
                 if value is not None and parameter < 2000: # Temp is in kelvin
                     value = value - kelvin_0c
                 # Rainfall must be shifted 1 hr back
+                #print(data)
                 if parameter == 2001 and row_index > 0:
                     data[row_index - 1][idx] = value
                 else:
                     data[row_index][idx] = value
+            previous_time = time_paramdict["time"]
             #print("%sZ: %s" % (datetime.utcfromtimestamp(time_paramdict["time"]).isoformat(), time_paramdict["rr"]))
         
         location_weather_data.data = data
