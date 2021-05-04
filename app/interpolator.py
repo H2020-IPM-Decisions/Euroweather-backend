@@ -78,6 +78,7 @@ class Interpolator():
                     line.append(self.uv2ff(u10m[ii][jj],v10m[ii][jj]))
                 self.ff10m[ii]=line
 
+    # Using total precipitation to calculate the rain rate (mm/hour)
     def setRainRate(self):
         time=self.times
         tp=self.tp
@@ -289,6 +290,7 @@ class Interpolator():
         self.ff10m=[]
         self.lat=[]
         self.lon=[]
+        self.rr=[]
         for ii in range(0,self.nlen): # read data...
             try:
                 times=self.getData(['time'],ii)
@@ -314,8 +316,12 @@ class Interpolator():
                         self.tp.append(self.getData(['ga_tp_1'],ii)) # total precipitation
                         self.u10m.append(self.getData(['x_wind_10m'],ii))
                         self.v10m.append(self.getData(['y_wind_10m'],ii))
-                        self.ff10m.append(self.getData(['wind_speed_10m'],ii))
+                        #ga_10si_103 is from MeteoFrance
+                        self.ff10m.append(self.getData(['wind_speed_10m','ga_10si_103'],ii))
                         self.ps.append(self.getData(['surface_air_pressure'],ii))
+                        # ga_8_1_0_1 is hourly data from MeteoFrance
+                        if self.getData(["ga_8_1_0_1"],ii) is not None:
+                            self.rr.append(self.getData(["ga_8_1_0_1"],ii))
                         #self.lat.append(self.getData(['latitude'],ii))
                         #self.lon.append(self.getData(['longitude'],ii))
                         ook[2]=ook[2]+1
@@ -331,8 +337,11 @@ class Interpolator():
                 raise
         # post process (make missing data)
         self.setWindSpeed()
-        self.setRainRate()
-        self.setHumidity()
+        if len(self.rh2m) == 0:
+            self.setHumidity()
+        if len(self.rr) == 0:
+            self.setRainRate()
+        
         # create output
         ret = self.populate(self.llen,len(self.times))
         self.assignData(ret,self.times,"time")
