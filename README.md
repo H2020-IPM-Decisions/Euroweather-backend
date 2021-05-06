@@ -5,6 +5,7 @@ Current usage: Pulled from GitHub to build a Docker image of the following locat
 
 * [IPM Decisions Weather Adapter for Deutsche Wetterdienst (DWD)](https://github.com/H2020-IPM-Decisions/Location-Weather-Adapter-DWD)
 * [IPM Decisions Weather Adapter for Deutsche Wetterdienst (DWD) covering EU](https://github.com/H2020-IPM-Decisions/Location-Weather-Adapter-DWD_EU)
+* [IPM Decisions Weather Adapter for MeteoFrance](https://github.com/H2020-IPM-Decisions/Location-Weather-Adapter-MeteoFrance)
 
 &copy; 2021 NIBIO and Met Norway
 
