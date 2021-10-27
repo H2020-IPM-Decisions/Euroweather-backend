@@ -20,6 +20,7 @@ import time
 import re
 import stat
 import json
+import glob
 from interpolator import Interpolator
 from pathlib import Path
 
@@ -27,21 +28,47 @@ from pathlib import Path
 from random import random 
 
 class Gatekeeper():
-    def __init__(self,directory,lockfile):
-        self.directory=directory;
+    def __init__(self,lockfile,filepattern,directory,verbose=0):
+        self.start = int(round(time.time() * 1000))
+        self.stamp=self.start
         self.lockfile=lockfile;
+        self.pattern=filepattern;
+        self.directory=directory;
+        self.verbose=verbose;
+        self.files=[];
+        self.interpolators=[];
         self.paths=[];
         self.lats=[];
         self.lons=[];
         self.invalid=[];
+        self.lock();
         if (not os.path.isdir(self.directory)):
             os.mkdir(self.directory);
-        self.lock();
+        self.makeinterpolators();
+
+    def makeinterpolators(self):
+        files=sorted(glob.glob(self.pattern));
+        lens=len(self.files);
+        lenf=len(files);
+        same=(lens==lenf); # only update interpolators if files have changed
+        if (same): # must also check content
+            ii=0;
+            while (ii<lens and same):
+                same=(files[ii]==self.files[ii]);
+                ii=ii+1;
+        if (not same): # files have changed, update interpolators...
+            self.files=files;
+            self.interpolators=[];
+            if (self.verbose >0):
+                print(self.files);
+            for filename in self.files:
+                ip=Interpolator(filename);
+                self.interpolators.append(ip);
 
     def lock(self):
         if (os.path.isfile(self.lockfile)):
             if (self.file_age(self.lockfile)>10):
-                os.remove(lockfile);
+                os.remove(self.lockfile);
             else:
                 raise Exception("Lockfile is active...");
         Path(self.lockfile).touch();
@@ -61,7 +88,8 @@ class Gatekeeper():
         for filename in os.listdir(self.directory):
             path=os.path.join(self.directory, filename);
             if filename.endswith(".req"):
-                print(path);
+                if (self.verbose>1):
+                    print("Request:",path);
                 f=open(path,'r');
                 req=f.read().replace('\n', '');
                 f.close();
@@ -72,7 +100,8 @@ class Gatekeeper():
                 for ii in range(0,leni):
                     lat=items[ii*2];
                     lon=items[ii*2+1];
-                    print("Lat:",lat," lon:",lon);
+                    if (self.verbose>1):
+                        print("   Lat:",lat," lon:",lon);
                     if (lat is not None and lon is not None):
                         self.lats.append(float(lat));
                         self.lons.append(float(lon));
@@ -90,51 +119,66 @@ class Gatekeeper():
             if (path != opath):
                 os.remove(path);
             opath=path;
-        
             
-    def process(self,interpolator):
+    def process(self):
         self.collect();
-        results=interpolator.interpolate(self.lats,self.lons);
-        i=0;
-        lenr=len(results);
-        while (i< lenr):
-            path=self.paths[i];
-            outpath=path.replace(".req",".res");
-            #print(result);
-            #interpolator.printTime("Starting dump");
-            f=open(outpath+".tmp", 'w');
-            increment=False;
-            while (i<lenr and  path==self.paths[i]):
-                   result=results[i];
-                   str=json.dumps(result);
-                   f.write(str+"\n");
-                   i=i+1;
-                   increment=True;
-            f.close();
-            os.rename(outpath+".tmp",outpath);
-            #interpolator.printTime("Completed dump");
-            #self.invalid.append(path);
-            if not increment:
-                i=i+1;
-        self.cleanup();
+        lenp=len(self.lats);
+        if (lenp != 0):
+            results=[];
+            for interpolator in self.interpolators:
+                results.append(interpolator.interpolate(self.lats,self.lons));
+            leni=len(results);
+            p=0;
+            while (p<lenp):
+                path=self.paths[p];
+                outpath=path.replace(".req",".res");
+                #print(result);
+                #interpolator.printTime("Starting dump");
+                f=open(outpath+".tmp", 'w');
+                increment=False;
+                while(p<lenp and  path==self.paths[p]):
+                    data=[];
+                    i=0;
+                    while (i < leni):
+                        res=results[i][p];
+                        data=data+res;
+                        i=i+1;
+                    str=json.dumps(data);
+                    f.write(str+"\n");
+                    if (self.verbose>2):
+                        print("result:",str);
+                    p=p+1;
+                    increment=True;
+                f.close();
+                os.rename(outpath+".tmp",outpath);
+                #interpolator.printTime("Completed dump");
+                #self.invalid.append(path);
+                if not increment:
+                    p=p+1;
+            self.cleanup();
                 
+    def printTime(self,text):
+        stamp=int(round(time.time() * 1000))
+        print("%d (+% 3d)"%(stamp-self.start,stamp-self.stamp),") ",text)
+        self.stamp=stamp
+
 
 ######################################################
 # start Gatekeeper and listen for requests...
 ######################################################
+
 lockfile="lockfile";
-filename='../weather_data/all.nc';
-ip=Interpolator(filename);
-gk=Gatekeeper("../coms",lockfile);
+gk=Gatekeeper(lockfile,"../weather_data/all20*.nc","../coms",2);
+
 mindelay=0.1; # seconds
 start=time.time();
 last=start;
-ip.printTime("Starting");
 
+gk.printTime("Starting");
 ## Running it indefinitely
 try:
     while(True):
-        gk.process(ip);
+        gk.process();
         current=time.time();
         delay=last+mindelay-current;
         if (delay>0):
@@ -142,6 +186,6 @@ try:
         last=current;
 finally:
     os.remove(lockfile);
-    ip.printTime("Terminating");
+    gk.printTime("Terminating");
 
-ip.printTime("Done");
+gk.printTime("Done");

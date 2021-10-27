@@ -279,6 +279,7 @@ class Interpolator():
         frt = self.getData(['forecast_reference_time'],0)
         #print("Analysis time:",frt[0])
         self.times=[]
+        self.ref=[]
         self.t2m=[]
         self.rh2m=[]
         self.td2m=[]
@@ -298,6 +299,7 @@ class Interpolator():
                     lead=(times[0]-frt[0])%3600
                     if (lead in self.minutesOfTheHour):
                         self.times.append(times)
+                        self.ref.append(self.getData(['forecast_reference_time'],ii))
                         ###########################################################################################
                         # This is where u read data from the file and put it into variables.
                         # Names on variables may be different depending on sources.
@@ -344,6 +346,7 @@ class Interpolator():
         
         # create output
         ret = self.populate(self.llen,len(self.times))
+        self.assignData(ret,self.ref,"ref")
         self.assignData(ret,self.times,"time")
         self.assignData(ret,self.t2m,"t2m")
         self.assignData(ret,self.rh2m,"rh2m")
