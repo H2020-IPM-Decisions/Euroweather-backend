@@ -27,6 +27,8 @@ from pathlib import Path
 
 from random import random 
 
+DEBUG=True
+
 class Gatekeeper():
     def __init__(self,lockfile,filepattern,directory,verbose=0):
         self.start = int(round(time.time() * 1000))
@@ -49,6 +51,8 @@ class Gatekeeper():
     def makeinterpolators(self):
         files=sorted(glob.glob(self.pattern));
         lens=len(self.files);
+        if DEBUG:
+            print("Found %s NetCDF files from pattern %s" %(lens, self.pattern))
         lenf=len(files);
         same=(lens==lenf); # only update interpolators if files have changed
         if (same): # must also check content
@@ -121,41 +125,41 @@ class Gatekeeper():
             opath=path;
             
     def process(self):
-        self.collect();
-        lenp=len(self.lats);
+        self.collect()
+        lenp=len(self.lats)
         if (lenp != 0):
-            results=[];
+            results=[]
             for interpolator in self.interpolators:
                 results.append(interpolator.interpolate(self.lats,self.lons));
             leni=len(results);
             p=0;
             while (p<lenp):
                 path=self.paths[p];
-                outpath=path.replace(".req",".res");
+                outpath=path.replace(".req",".res")
                 #print(result);
                 #interpolator.printTime("Starting dump");
                 f=open(outpath+".tmp", 'w');
-                increment=False;
+                increment=False
                 while(p<lenp and  path==self.paths[p]):
                     data=[];
                     i=0;
                     while (i < leni):
-                        res=results[i][p];
-                        data=data+res;
-                        i=i+1;
-                    str=json.dumps(data);
-                    f.write(str+"\n");
+                        res=results[i][p]
+                        data=data+res
+                        i=i+1
+                    str=json.dumps(data)
+                    f.write(str+"\n")
                     if (self.verbose>2):
-                        print("result:",str);
+                        print("result:",str)
                     p=p+1;
-                    increment=True;
+                    increment=True
                 f.close();
-                os.rename(outpath+".tmp",outpath);
+                os.rename(outpath+".tmp",outpath)
                 #interpolator.printTime("Completed dump");
                 #self.invalid.append(path);
                 if not increment:
-                    p=p+1;
-            self.cleanup();
+                    p=p+1
+            self.cleanup()
                 
     def printTime(self,text):
         stamp=int(round(time.time() * 1000))
@@ -167,25 +171,25 @@ class Gatekeeper():
 # start Gatekeeper and listen for requests...
 ######################################################
 
-lockfile="lockfile";
-gk=Gatekeeper(lockfile,"../weather_data/all20*.nc","../coms",2);
+lockfile="lockfile"
+gk=Gatekeeper(lockfile,"../weather_data/all20*.nc","../coms",2)
 
 mindelay=0.1; # seconds
-start=time.time();
+start=time.time()
 last=start;
 
-gk.printTime("Starting");
+#gk.printTime("Starting")
 ## Running it indefinitely
 try:
-    while(True):
-        gk.process();
-        current=time.time();
-        delay=last+mindelay-current;
-        if (delay>0):
-            time.sleep(delay);
-        last=current;
+    #while(True):
+    gk.process()
+    """current=time.time()
+    delay=last+mindelay-current
+    if (delay>0):
+        time.sleep(delay)
+    last=current"""
 finally:
-    os.remove(lockfile);
-    gk.printTime("Terminating");
+    os.remove(lockfile)
+    #gk.printTime("Terminating")
 
 gk.printTime("Done");

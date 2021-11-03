@@ -66,7 +66,7 @@ class Negotiator():
                 f.close();
                 #print(outpath+" :> "+res);
                 spl=json.loads(res)#.split("\n");
-                os.remove(outpath);
+                #os.remove(outpath);
                 return spl;
             current=time.time();
             bdone=(current-start) > patience;

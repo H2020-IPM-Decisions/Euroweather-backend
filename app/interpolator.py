@@ -21,6 +21,7 @@
 import os
 import pyfimex0
 import math
+import numpy as np
 import time # for testing
 
 DEBUG=False
@@ -71,7 +72,7 @@ class Interpolator():
         ff10m=self.ff10m
         olen=len(u10m)
         for ii in range(0,olen):
-            if (ff10m[ii]==None and u10m[ii]!=None and v10m[ii]!=None):
+            if (np.any(ff10m[ii]==None) and np.any(u10m[ii]!=None) and np.any(v10m[ii]!=None)):
                 line=[]
                 ilen=min(len(u10m[ii]),len(v10m[ii]))
                 for jj in range(0,ilen):
