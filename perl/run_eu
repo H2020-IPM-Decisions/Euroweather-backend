@@ -1,0 +1,109 @@
+# bash-shell...
+#
+# -d -v -f
+#-c "*.nc*" \ --- hvis du vil slette nc-filene
+
+./ftpget.pl -l file.lock \
+             -r file.register \
+	     -a 0.5 \
+	     -w tmpdir \
+	     -o outdir \
+	     -b /weather/nwp/icon-eu/grib/* \
+	     -c "*.grib*" \
+	     -s anonymous@opendata.dwd.de:post@ipmdecisions.net \
+	     -x postprocess.pl@../outdir/all.nc \
+	     /weather/nwp/icon-eu/grib/00/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/00/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/00/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/00/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/00/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/03/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/03/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/03/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/03/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/03/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/06/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/06/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/06/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/06/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/06/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/09/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/09/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/09/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/09/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/09/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/12/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/12/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/12/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/12/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/12/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/15/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/15/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/15/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/15/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/15/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/18/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/18/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/18/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/18/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/18/v_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/21/relhum_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/21/t_2m/*regular* \
+	     /weather/nwp/icon-eu/grib/21/tot_prec/*regular* \
+	     /weather/nwp/icon-eu/grib/21/u_10m/*regular* \
+	     /weather/nwp/icon-eu/grib/21/v_10m/*regular*
+	     
+
+# fimex --input.file outdir/dwd.grib2 \
+#  --input.config cdmGribReaderConfig.xml --interpolate.latitudeValues 50.0 \
+#  --interpolate.longitudeValues 10.0 --output.file dwd.nc
+
+
+#
+# ---------------------- script help starts -----------------------------------
+# Usage: ftpget.pl [options] [<path/mask>]...
+#
+# Download files matching <path/mask> (ftp glob) from ftp-server.
+#
+# The script uses a lockfile to prevent multiple instances running at same time.
+# The script uses a register file to store a list of the files on the server.
+# The script will not download new files (that are being created on the server).
+# The script determines which files are interesting based on their age relative to the newest file.
+# Only interesting files are sent to the post-processing script.
+# The Mail-option for system errors has not been tested properly.
+#
+# Note that you have to specify which time-zone the server is operating in (i.e. "GMT", "+0200").
+#
+# Valid options:
+#
+#   -l <file> name of lockfile (makes sure only one process of script is running)
+#            default is $HOME/.lockfile
+#
+#   -r <file> name of registerfile (keeps track of downloaded files).
+#            default is $HOME/.register
+#
+#   -w <dir> name of work directory (where temporary files are put).
+#            default is /tmp
+#
+#   -o <dir> name of output directory (where final files are put).
+#            default is ./
+#
+#   -c <mask> clean temp and output directory using mask (glob).
+#
+#   -d       dry run, no download!!!
+#
+#   -v       verbose, print output
+#
+#   -t <delay@zone> delay before loading new files (hours) and the server time zone.
+#
+#   -a <age> maximum allowed age difference to latest file (hours) to be interesting.
+#
+#   -s <user@server:password> user, name of server and password.
+#
+#   -x <script@options> name of post-processing script to execute on new and interesting files.
+#               Command is: <script> <options> file1 file2 file3 ... filen
+#  
+#   -m <owner> email adress to owner (system error notifications).
+#
+# ---------------------- script help ends -----------------------------------
+
