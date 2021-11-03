@@ -172,24 +172,15 @@ class Gatekeeper():
 ######################################################
 
 lockfile="lockfile"
-gk=Gatekeeper(lockfile,"../weather_data/all20*.nc","../coms",2)
+gk=Gatekeeper(lockfile,"../perl/outdir/all20*.nc","../coms",2)
 
 mindelay=0.1; # seconds
 start=time.time()
 last=start;
 
-#gk.printTime("Starting")
-## Running it indefinitely
 try:
-    #while(True):
     gk.process()
-    """current=time.time()
-    delay=last+mindelay-current
-    if (delay>0):
-        time.sleep(delay)
-    last=current"""
 finally:
     os.remove(lockfile)
-    #gk.printTime("Terminating")
 
 gk.printTime("Done");
