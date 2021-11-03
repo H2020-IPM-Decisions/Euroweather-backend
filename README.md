@@ -1,4 +1,9 @@
-# NetCDF Location Weather Adapter
+# Euroweather backend service
+
+## TODO: Rewrite docs after forking!
+
+
+
 Python based web service that serves weather forecasts from NetCDF files, allowing for a fairly efficient reading of the NetCDF file. Provide latitude and longitude, get IPMDecisions formatted weather data back. Using the Met Norway software [Fimex](https://github.com/metno/fimex) to read and interpolate the data.
 
 Current usage: Pulled from GitHub to build a Docker image of the following location based weather forecasting services:
