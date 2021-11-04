@@ -25,7 +25,7 @@ Authors: Tor-Einar Skog (NIBIO) and Frank Thomas Tveter (Met Norway)
  
 ```
 
-The Euroweather service is a weather service that provides in-season data including approximately X hours of forecasts for all locations in Europe.
+The Euroweather service is a weather service that provides in-season data including approximately 72 hours of forecasts for all locations in Europe.
 By using the hourly forecasts provided as open data from DWD (LINK) and storing them as "historical weather data", we have synthetic weather data
 with 7 km resolution across the continent. 
 
@@ -58,9 +58,8 @@ A python application for interpolating Using the Met Norway software [Fimex](htt
 ```
 All of these coordinates are collected and the NetCDF files are analyzed and weather data are returned. The `*.req` files are returned by `*.res` files containing Json formatted weather data for that exact location, e.g. `1.req` is deleted and replaced by `1.res` containing the data for the location (51.109,10.961)
 
-Heres an example of the returned result. `ref` denotes the processing time by DWD (when was the forecast model run), and `time` is the timestamp of the values. Since we have many NetCDF files for each day and these files contain x number of hourly time steps of forecasts, we have many values for the same time stamps. Many! So the front end application has to deal with this and select the optimal one for each hour. Currently this is done simply by choosing the value from the latest model run, meaning the one with the highest value of `ref`.
+Heres an example of the returned result. `ref` denotes the processing time by DWD (when was the forecast model run), and `time` is the timestamp of the values. Since we have many NetCDF files for each day and these files contain x number of hourly time steps of forecasts, we have many values for the same time stamps. Many! So the front end application has to deal with this and select the optimal one for each hour. Currently this is done simply by choosing the value from the latest model run, meaning the one with the highest value of `ref`. The first hourly step of all each model run is ignored, since it's considered a model spinup timestep.
 
-**TODO omit the first hourly step of all model runs/ref times, as that's an initial step of the model that may be a bit off (Move this TODO to frontend!!)**
 
 ```json
 [

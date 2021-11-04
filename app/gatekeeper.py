@@ -14,13 +14,16 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import pyfimex0
+import sys
 import os,os.path
 import math
 import time
 import re
 import stat
 import json
-import glob
+from glob import glob
+from braceexpand import braceexpand
+from datetime import datetime
 from interpolator import Interpolator
 from pathlib import Path
 
@@ -48,12 +51,20 @@ class Gatekeeper():
             os.mkdir(self.directory);
         self.makeinterpolators();
 
+    # Thanks to https://stackoverflow.com/questions/22996645/brace-expansion-in-python-glob!
+    def braced_glob(self, path):
+        l = []
+        for x in braceexpand(path):
+            l.extend(glob(x))  
+        return l
+
     def makeinterpolators(self):
-        files=sorted(glob.glob(self.pattern));
+        print(self.pattern)
+        files=sorted(self.braced_glob(self.pattern));
         lens=len(self.files);
+        lenf=len(files)
         if DEBUG:
-            print("Found %s NetCDF files from pattern %s" %(lens, self.pattern))
-        lenf=len(files);
+            print("Found %s NetCDF files from pattern %s" %(lenf, self.pattern))
         same=(lens==lenf); # only update interpolators if files have changed
         if (same): # must also check content
             ii=0;
@@ -172,7 +183,28 @@ class Gatekeeper():
 ######################################################
 
 lockfile="lockfile"
-gk=Gatekeeper(lockfile,"../perl/outdir/all20*.nc","../coms",2)
+#file_pattern = "{2021103100..2021110500}"
+coms_path = "../coms_init"
+file_pattern="%s*" % datetime.now().year
+# The default mode is "Read all data from the beginning of the season"
+# If the user provides a timestamp in the format of %Y%m%d%H (e.g. 2021090100),
+# an "update job" is assumed, and only the NetCDF files from that timestamp onwards
+# are considered
+if len(sys.argv) == 2:
+    requested_time = sys.argv[1]
+    coms_path = "../coms_update"
+    # Check that the input is a date in this year
+    try:
+        if not datetime.strptime(requested_time,"%Y%m%d%H").year == datetime.now().year:
+            print("ERROR: %s is not in current year. Exiting." % requested_time)
+            exit(1)
+    except ValueError:
+        print("ERROR: Invalid datetime format: %s. Exiting." % requested_time)
+        exit(1)
+    file_pattern = "{%s..%s}" % (requested_time, datetime.strftime(datetime.now(),"%Y%m%d%H"))
+
+#gk=Gatekeeper(lockfile,"../perl/outdir/all20*.nc","../coms",2)
+gk=Gatekeeper(lockfile,"../perl/outdir/all%s.nc" % file_pattern,coms_path,2)
 
 mindelay=0.1; # seconds
 start=time.time()
