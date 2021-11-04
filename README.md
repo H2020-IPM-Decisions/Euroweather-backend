@@ -1,6 +1,9 @@
 # Euroweather backend service
-## TODO: Complete rewriting docs after forking!
-## TODO: Add map of DWD-EU and application summary
+This service downloads gridded weather forecasts covering Europe from Deutsche Wetterdienst and produces Json weather data for requested locations. The data spans from the start of the season (or later) and approximately 72 hours ahead of time. 
+
+The resulting Json data is consumed and stored for immediate access by the Euroweather frontend service. **TODO add link**
+
+![Example temperature map showing the covered area](./map.png "Example temperature map showing the covered area")
 
 &copy; 2021 NIBIO and Met Norway
 
@@ -26,14 +29,20 @@ Authors: Tor-Einar Skog (NIBIO) and Frank Thomas Tveter (Met Norway)
 ```
 
 The Euroweather service is a weather service that provides in-season data including approximately 72 hours of forecasts for all locations in Europe.
-By using the hourly forecasts provided as open data from DWD (LINK) and storing them as "historical weather data", we have synthetic weather data
+By using the hourly forecasts provided as [open data from Deutsche Wetterdienst (DWD)](https://www.dwd.de/EN/ourservices/opendata/opendata.html) and storing them as "historical weather data", we have synthetic weather data
 with 7 km resolution across the continent. 
 
-The data are downloaded 8 times per day from DWD. The grib2 files are converted into NetCDF files containing 
-only the parameters relevant for IPM Decisions. These are temperature, rainfall, relative humidity and wind speed.
-For how to use the service, see the Euroweather frontend service (TODO LINK)
+The data are downloaded 8 times per day from [DWD](http://opendata.dwd.de/weather/nwp/icon-eu/grib/). The grib2 files are converted into NetCDF files containing 
+only the parameters relevant for IPM Decisions. These are 
 
-The backend service consists of to main parts: The downloading and extracting part and the interpolation service part
+* Temperature (at 2m in &deg;C)
+* Rainfall (in mm)
+* Relative humidity (at Xm in %)
+* Wind speed (at 10m in m/s)
+
+For how to use the service, see the Euroweather frontend service **(TODO LINK)**
+
+The backend service consists of two main parts: The downloading and extracting part and the interpolation service part
 
 ## Downloading and extracting data from Deutsche Wetterdienst (DWD)
 The `perl/` folder contains the operative and data files. The `run_eu` script performs the actions needed. NetCDF files are named `outdir/all[yyyyMMddHH].nc`, with the time stamp reflecting the processing time on the DWD system. So, a set of files for one day will look like this:
@@ -51,7 +60,18 @@ The `perl/` folder contains the operative and data files. The `run_eu` script pe
 **It is important that outdir/ is cleaned up before the start of every season (Jan 1st year X), since the interpolating service returns data from all the files in this folder.**
 
 ## Interpolating data by request of the frontend service
-A python application for interpolating Using the Met Norway software [Fimex](https://github.com/metno/fimex) to read and interpolate the data. It's located in the `app/` folder. Run the app from that folder like this: `python3 gatekeeper.py`. The app then indexes all the NetCDF files in `../perl/outdir` and collects the requests from `*.res` files in the `../coms` folder. These files are simple text files with lat-lon pairs in them, with the site_id (frontend reference) as the file name. E.g. `1.req`, which may contain this text:
+A python application for interpolating Using the Met Norway software [Fimex](https://github.com/metno/fimex) to read and interpolate the data. It's located in the `app/` folder. To retreive all data from the start of the season (or as far back as you have NetCDF files), run the app as an INIT job from that folder like this: 
+
+```
+python3 gatekeeper.py
+```
+or if you want only the latest data, e.g. if you're updating an existing set: 
+
+```
+python3 gatekeeper.py 2021090100
+```
+
+ The app then indexes all the NetCDF files in `../perl/outdir` and collects the requests from `*.res` files in the `../coms_init` (for INIT jobs) and `../coms_update` (for UPDATE jobs) folders. These files are simple text files with lat-lon pairs in them, with the site_id (frontend reference) as the file name. E.g. `1.req`, which may contain this text:
 
 ```
 51.109 10.961
@@ -140,11 +160,35 @@ sudo pip3 install -r requirements.xt
 
 ### Running the app
 There are two processes that need to be run regularly
-1. The run_eu script (crontab **TODO ADD example**)
+#### 1. The run_eu script
 
+An example of a crontab entry:
+``` bash
+# m h  dom mon dow   command
+30 * * * * cd /opt/Euroweather-backend/perl; ./run_eu > ./download.log
+```
 
-2. The gatekeeper process **TODO add rsync**
+#### 2. The gatekeeper process 
+
+As mentioned above, The gatekeeper process needs to be run separately for INIT and UPDATE jobs. In addition, if the frontend and backend are separated (which is higly recommended), the `coms_init/` and `coms_update/` folders need to be synchronized before and after running the processes. Also, bearing in mind that the INIT job could be quite time consuming, the INIT and UPDATE jobs should not be run simultaneously
+
+Example script for running the jobs in sequence:
 
 ``` bash
-python3 app/gatekeeper.py
+#### INIT JOB
+# Retreive req files from frontend
+rsync -a --delete user@frontendserver.com:/path/to/frontend/coms_init/ /local_path/to/backend/coms_init/
+# Run INIT jobs
+python3 gatekeeper.py
+# Sync results to frontend
+rsync -a --delete /local_path/to/backend/coms_init/ user@frontendserver.com:/path/to/frontend/coms_init/
+
+#### UPDATE JOB
+# Retreive req files from frontend
+rsync -a --delete user@frontendserver.com:/path/to/frontend/coms_update/ /local_path/to/backend/coms_update/
+# Run UPDATE jobs
+python3 gatekeeper.py $(date --date="yesterday" +"%Y%m%d00")
+# Sync results to frontend
+rsync -a --delete /local_path/to/backend/coms_update/ user@frontendserver.com:/path/to/frontend/coms_update/
+
 ```
