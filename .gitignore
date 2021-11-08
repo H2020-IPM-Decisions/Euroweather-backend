@@ -5,4 +5,4 @@ venv/
 __pycache__/
 app/lockfile
 config.ini
-#app/interpolator.py
+run_gatekeeper.sh
