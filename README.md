@@ -1,7 +1,7 @@
 # Euroweather backend service
 This service downloads gridded weather forecasts covering Europe from Deutsche Wetterdienst and produces Json weather data for requested locations. The data spans from the start of the season (or later) and approximately 72 hours ahead of time. 
 
-The resulting Json data is consumed and stored for immediate access by the Euroweather frontend service. **TODO add link**
+The resulting Json data is consumed and stored for immediate access by the [Euroweather frontend service](https://github.com/H2020-IPM-Decisions/Euroweather-frontend).
 
 ![Example temperature map showing the covered area](./map.png "Example temperature map showing the covered area")
 
@@ -172,23 +172,9 @@ An example of a crontab entry:
 
 As mentioned above, The gatekeeper process needs to be run separately for INIT and UPDATE jobs. In addition, if the frontend and backend are separated (which is higly recommended), the `coms_init/` and `coms_update/` folders need to be synchronized before and after running the processes. Also, bearing in mind that the INIT job could be quite time consuming, the INIT and UPDATE jobs should not be run simultaneously
 
-Example script for running the jobs in sequence:
+Example script for running the jobs in sequence is given in `run_gatekeeper_example.sh` 
+Run it e.g. once every hour using crontab (if your server is quick enough)
 
-``` bash
-#### INIT JOB
-# Retreive req files from frontend
-rsync -a --delete user@frontendserver.com:/path/to/frontend/coms_init/ /local_path/to/backend/coms_init/
-# Run INIT jobs
-python3 gatekeeper.py
-# Sync results to frontend
-rsync -a --delete /local_path/to/backend/coms_init/ user@frontendserver.com:/path/to/frontend/coms_init/
-
-#### UPDATE JOB
-# Retreive req files from frontend
-rsync -a --delete user@frontendserver.com:/path/to/frontend/coms_update/ /local_path/to/backend/coms_update/
-# Run UPDATE jobs
-python3 gatekeeper.py $(date --date="yesterday" +"%Y%m%d00")
-# Sync results to frontend
-rsync -a --delete /local_path/to/backend/coms_update/ user@frontendserver.com:/path/to/frontend/coms_update/
-
+```
+0 * * * * /opt/Euroweather-backend/run_gatekeeper.sh
 ```
