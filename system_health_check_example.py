@@ -69,7 +69,6 @@ if exit_code != 0 and SEND_EMAIL_ALERT:
     finally:
         conn.quit()
 
-if DEBUG:
-    print(exit_code)
+print(exit_code)
 
 sys.exit(exit_code)
