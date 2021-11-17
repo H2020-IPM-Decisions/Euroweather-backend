@@ -69,6 +69,6 @@ if exit_code != 0 and SEND_EMAIL_ALERT:
     finally:
         conn.quit()
 
-print(exit_code)
+print("System check %s" % ("OK" if exit_code == 0 else "FAILED"))
 
 sys.exit(exit_code)
