@@ -184,7 +184,9 @@ class Gatekeeper():
 
 lockfile="lockfile"
 #file_pattern = "{2021103100..2021110500}"
-file_pattern="%s*" % datetime.now().year
+#file_pattern="%s*" % datetime.now().year
+# Changing to this to automatically include data from last year's last day
+file_pattern = "{%s123100..%s}" % (datetime.now().year-1,datetime.strftime(datetime.now(),"%Y%m%d%H"))
 coms_path = "../coms_init"
 
 # The default mode is "Read all data from the beginning of the season"
@@ -206,11 +208,7 @@ if len(sys.argv) == 2:
 
 
 #gk=Gatekeeper(lockfile,"../perl/outdir/all20*.nc","../coms",2)
-#gk=Gatekeeper(lockfile,"../perl/outdir/all%s.nc" % file_pattern,coms_path,2)
-# We have to stick with the year unspecific file pattern, since we need to include the
-# files all[YEAR-1]1231*.nc to get data for hours at midnight [YEAR]-01-01
-# Yearly archiving of .nc files is all the more important!
-gk=Gatekeeper(lockfile,"../perl/outdir/all20*.nc",coms_path,2)
+gk=Gatekeeper(lockfile,"../perl/outdir/all%s.nc" % file_pattern,coms_path,2)
 
 mindelay=0.1; # seconds
 start=time.time()
