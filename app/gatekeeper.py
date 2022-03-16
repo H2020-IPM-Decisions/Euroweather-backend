@@ -186,7 +186,7 @@ lockfile="lockfile"
 #file_pattern = "{2021103100..2021110500}"
 #file_pattern="%s*" % datetime.now().year
 # Changing to this to automatically include data from last year's last day
-file_pattern = "{%s010100..%s}" % (datetime.now().year-1,datetime.strftime(datetime.now(),"%Y%m%d%H"))
+file_pattern = "{%s123100..%s}" % (datetime.now().year-1,datetime.strftime(datetime.now(),"%Y%m%d%H"))
 coms_path = "../coms_init"
 
 # The default mode is "Read all data from the beginning of the season"
