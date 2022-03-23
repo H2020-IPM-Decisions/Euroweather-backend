@@ -143,6 +143,18 @@ Heres an example of the returned result. `ref` denotes the processing time by DW
 ### Hardware requirements
 * SSD (preferably) disk with at least 2TB of storage space (for one season worth of NetCDF weather data files)
 
+### OS configuration
+#### Adjust the limit of number of files open by a process
+If you keep up to 2 years of NetCDF files to be processed by gatekeeper, you need to make sure that the OS allows for opening approximately 5856 files by the run_gatekeeper.sh process. This can be done by adding this to the `/etc/security/limits.conf` file:
+
+```bash
+foobar            soft    nofile          15000
+```
+
+This allows the `foobar` user (assuming this is the user running the application) to have enough files open simultaneously
+
+Reference: [Fixing the “Too many open files” Error in Linux](https://www.baeldung.com/linux/error-too-many-open-files)
+
 #### Installing Fimex and Python requirements
 Example using Ubuntu
 
