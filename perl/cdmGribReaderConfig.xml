@@ -435,6 +435,7 @@
     </parameter>
     <parameter name="total_precipitation" type="float">
         <grib1 indicatorOfParameter="61" gribTablesVersionNo="3"/>
+        <grib2 discipline="0" parameterCategory="1" parameterNumber="52" />
         <attribute name="long_name" value="total_precipitation" type="string" />
         <attribute name="units" value="kg m^-2" type="string" />
     </parameter>
