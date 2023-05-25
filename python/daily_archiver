@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+#    Copyright (C) 2023  Johannes Tobiassen Langvatn, Met Norway
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU Affero General Public License as
+#    published by the Free Software Foundation, either version 3 of the
+#    License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU Affero General Public License for more details.
+#
+#    You should have received a copy of the GNU Affero General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import subprocess
+from datetime import timedelta, date
+archive = date.today() - timedelta(days=1)
+archive = archive.strftime("%Y%m%d")
+BASE = "/home/johannestl/Desktop/IPM/Euroweather-backend/python/"
+OUTDIR = BASE + "outdir/"
+
+
+for hour in ["_000_", "_001_", "_002_"]:
+    subprocess.run(f"cat {OUTDIR}grib/*{archive}*{hour}*.grib2 >> " +
+                   f"{OUTDIR}daily_archive_{archive}.grib2", shell=True, check=True)
+
+subprocess.run(f"fimex-1.9 --input.file {OUTDIR}daily_archive_{archive}.grib2 --input.config " +
+               f"{BASE}cdmGribReaderConfig.xml --output.file {OUTDIR}daily_archive_{archive}.nc",
+               shell=True, check=True)
