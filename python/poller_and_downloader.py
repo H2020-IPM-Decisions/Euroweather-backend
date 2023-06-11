@@ -1,7 +1,26 @@
+"""
+    Copyright (C) 2023  Johannes Tobiassen Langvatn, Met Norway
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
 import os
 import bz2
-import datetime
 import ftplib
+import logging
+import datetime
+
+logger = logging.getLogger(__name__)
 
 month_map = {"Jan": "01", "Feb": "02", "Mar": "03",
              "Apr": "04", "May": "05", "Jun": "06",
@@ -95,15 +114,16 @@ class Poller():
                                     latest = run_name
                 ftp.cwd("../")
 
-            # If latest is not None, check if latest has been downloaded before (Reftime registry)
+            # If latest is not None, check if latest has been downloaded before 
+            # (if self.latest_reftime is not none)
             if latest is not None:
                 reftime = self.year+latest_month+last_day+latest
-                print("Found newest folder to be %s with forecast ref %s" % (latest, reftime))
+                logger.info(f"Found newest folder to be {latest} with forecast ref {reftime}")
                 if reftime == self.latest_reftime:
-                    print("Newest folder is already registered")
+                    logger.info("Newest folder is already registered")
                     return reftime, False
             else:
-                print("Found no new folders")
+                logger.info("Found no new folders")
                 return "", False
 
             ftp.cwd(latest)
@@ -136,7 +156,7 @@ class Downloader:
 
     def download_and_unzip(self, reftime):
         refhour = reftime[-2:]
-        print(refhour)
+        logger.info(refhour)
         if refhour in self.long_list:
             max_LT = 78
         else:
@@ -156,7 +176,7 @@ class Downloader:
                     if outfile not in zipped_files:
                         ftp.retrbinary("RETR " + last_file, open(outfile, "wb+").write)
                         zipped_files.append(outfile)
-                    print(last_file)
+                    logger.info(last_file)
                 ftp.cwd("../")
 
         files = []
@@ -169,6 +189,6 @@ class Downloader:
             if os.path.isfile(new_filepath):
                 os.unlink(filepath)
                 files.append(new_filepath)
-            print(f"unzipped {filepath} to {new_filepath}")
+            logger.info(f"unzipped {filepath} to {new_filepath}")
 
         return files, True
