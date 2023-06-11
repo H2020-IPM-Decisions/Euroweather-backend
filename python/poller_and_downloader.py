@@ -1,5 +1,6 @@
 import os
 import bz2
+import datetime
 import ftplib
 
 month_map = {"Jan": "01", "Feb": "02", "Mar": "03",
@@ -27,11 +28,11 @@ def newer_time(last_time, new_time):
 
 
 class Poller():
-    def __init__(self, year, ftp_username, ftp_password, ftp_account, latest_reftime=None,
+    def __init__(self, ftp_username, ftp_password, ftp_account, latest_reftime=None,
                  ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/icon-eu/grib",
                  variable_base="icon-eu_europe_regular-lat-lon_single-level_",
                  variable_list=("t_2m", "relhum_2m", "v_10m", "u_10m", "tot_prec"),
-                 long_list=("00", "06", "12", "18")):
+                 long_list=("00", "06", "12", "18"), max_leadtime="_078_"):
         """
         Initiates an object with ftp credentials and ftp url.
 
@@ -45,10 +46,10 @@ class Poller():
         ftp_url -- url to connect to ftp-server [str]
         variable_base -- base_filename before variable name [str]
         variable_list -- variables to look for[iterable]
-        long_list -- model-run cycles that are longer (hardcoded leadtime 78)
-                     than short cycles (hardcoded leadtime 30) [iterable]
+        long_list -- main model cycles, which produce long forecasts [iterable]
+        max_LT -- Last lead time for main model cycles, to check for readiness [str]
         """
-        self.year = year
+        self.year = datetime.date.today().year
         self.ftp_username = ftp_username
         self.ftp_password = ftp_password
         self.ftp_account = ftp_account
@@ -58,9 +59,12 @@ class Poller():
         self.variable_list = variable_list
         self.long_list = long_list
         self.latest_reftime = latest_reftime
+        self.max_leadtime = max_leadtime
         return None
 
-    def poll(self, last_day="00", last_time="00:00"):
+    def poll(self):
+        last_day = "00"
+        last_time = "00:00"
         # Connect to FTP
         with ftplib.FTP(self.ftp_url, user=self.ftp_username, passwd=self.ftp_password,
                         acct=self.ftp_account) as ftp:
@@ -74,19 +78,21 @@ class Poller():
             for line in run_lines:
                 # Discard parts of list that is not needed
                 *_, run_name = line.split()
-                ftp.cwd(run_name)
-                variable_lines = []
-                ftp.retrlines("LIST", variable_lines.append)
-                for line in variable_lines:
-                    *_, month, day, time, name = line.split()
-                    # check lai, a time-invariant variable
-                    if name == "lai":
-                        if newer_day(last_day, day):
-                            last_day = day
-                            if newer_time(last_time, time):
-                                last_time = time
-                                latest_month = month_map[month]
-                                latest = run_name
+                # Only check run if it is main cycle
+                if run_name in self.long_list:
+                    ftp.cwd(run_name)
+                    variable_lines = []
+                    ftp.retrlines("LIST", variable_lines.append)
+                    for line in variable_lines:
+                        *_, month, day, time, name = line.split()
+                        # check lai, a time-invariant variable
+                        if name == "lai":
+                            if newer_day(last_day, day):
+                                last_day = day
+                                if newer_time(last_time, time):
+                                    last_time = time
+                                    latest_month = month_map[month]
+                                    latest = run_name
                 ftp.cwd("../")
 
             # If latest is not None, check if latest has been downloaded before (Reftime registry)
@@ -101,15 +107,11 @@ class Poller():
                 return "", False
 
             ftp.cwd(latest)
-            if latest in self.long_list:
-                max_LT = "_078_"
-            else:
-                max_LT = "_030_"
 
             ready = True
             for variable in self.variable_list:
                 ftp.cwd(variable)
-                last_file = self.variable_base + reftime + max_LT + variable.upper() + ".grib2.bz2"
+                last_file = self.variable_base + reftime + self.max_leadtime + variable.upper() + ".grib2.bz2"
                 ready &= last_file in ftp.nlst()
                 ftp.cwd("../")
                 if not ready:
