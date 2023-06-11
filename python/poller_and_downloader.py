@@ -111,7 +111,8 @@ class Poller():
             ready = True
             for variable in self.variable_list:
                 ftp.cwd(variable)
-                last_file = self.variable_base + reftime + self.max_leadtime + variable.upper() + ".grib2.bz2"
+                last_file = self.variable_base + reftime + self.max_leadtime + variable.upper() +\
+                    ".grib2.bz2"
                 ready &= last_file in ftp.nlst()
                 ftp.cwd("../")
                 if not ready:
@@ -150,7 +151,7 @@ class Downloader:
                 ftp.cwd(variable)
                 for lead_time in range(max_LT+1):
                     last_file = self.variable_base + reftime + f"_{lead_time:03d}_" +\
-                                variable.upper() + ".grib2.bz2"
+                        variable.upper() + ".grib2.bz2"
                     outfile = self.outdir + last_file
                     if outfile not in zipped_files:
                         ftp.retrbinary("RETR " + last_file, open(outfile, "wb+").write)
