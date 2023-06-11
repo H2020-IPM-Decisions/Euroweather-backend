@@ -19,8 +19,10 @@ import bz2
 import ftplib
 import logging
 import datetime
+from config_and_logger import init_logging
 
 logger = logging.getLogger(__name__)
+init_logging(logger)
 
 month_map = {"Jan": "01", "Feb": "02", "Mar": "03",
              "Apr": "04", "May": "05", "Jun": "06",
@@ -51,7 +53,7 @@ class Poller():
                  ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/icon-eu/grib",
                  variable_base="icon-eu_europe_regular-lat-lon_single-level_",
                  variable_list=("t_2m", "relhum_2m", "v_10m", "u_10m", "tot_prec"),
-                 long_list=("00", "06", "12", "18"), max_leadtime="_078_"):
+                 main_cycles=("00", "06", "12", "18"), max_leadtime="_078_"):
         """
         Initiates an object with ftp credentials and ftp url.
 
@@ -65,10 +67,10 @@ class Poller():
         ftp_url -- url to connect to ftp-server [str]
         variable_base -- base_filename before variable name [str]
         variable_list -- variables to look for[iterable]
-        long_list -- main model cycles, which produce long forecasts [iterable]
-        max_LT -- Last lead time for main model cycles, to check for readiness [str]
+        main_cycles -- main model cycles, which produce long forecasts [iterable]
+        self.max_leadtime -- Last lead time for main model cycles, to check for readiness [str]
         """
-        self.year = datetime.date.today().year
+        self.year = str(datetime.date.today().year)
         self.ftp_username = ftp_username
         self.ftp_password = ftp_password
         self.ftp_account = ftp_account
@@ -76,7 +78,7 @@ class Poller():
         self.variable_base = variable_base
         self.ftp_url = ftp_url
         self.variable_list = variable_list
-        self.long_list = long_list
+        self.main_cycles = main_cycles
         self.latest_reftime = latest_reftime
         self.max_leadtime = max_leadtime
         return None
@@ -98,7 +100,7 @@ class Poller():
                 # Discard parts of list that is not needed
                 *_, run_name = line.split()
                 # Only check run if it is main cycle
-                if run_name in self.long_list:
+                if run_name in self.main_cycles:
                     ftp.cwd(run_name)
                     variable_lines = []
                     ftp.retrlines("LIST", variable_lines.append)
@@ -112,7 +114,7 @@ class Poller():
                                     last_time = time
                                     latest_month = month_map[month]
                                     latest = run_name
-                ftp.cwd("../")
+                    ftp.cwd("../")
 
             # If latest is not None, check if latest has been downloaded before 
             # (if self.latest_reftime is not none)
@@ -150,18 +152,16 @@ class Downloader:
         self.base_ftp_link = poller.base_ftp_link
         self.variable_base = poller.variable_base
         self.variable_list = poller.variable_list
-        self.long_list = poller.long_list
+        self.main_cycles = poller.main_cycles
+        self.max_leadtime = poller.max_leadtime
         self.outdir = outdir
+
         return None
 
     def download_and_unzip(self, reftime):
         refhour = reftime[-2:]
         logger.info(refhour)
-        if refhour in self.long_list:
-            max_LT = 78
-        else:
-            max_LT = 30
-
+        max_LT = int(self.max_leadtime.strip("_"))
         with ftplib.FTP(self.ftp_url, user=self.ftp_username, passwd=self.ftp_password,
                         acct=self.ftp_account) as ftp:
             ftp.cwd(self.base_ftp_link+"/"+refhour)
