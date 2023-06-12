@@ -54,6 +54,6 @@ for hour in archive_cycles[:-1]:
 
 
 # Convert to daily_archive to NETCDF
-subprocess.run(f"fimex --input.file {OUTDIR}daily_archive_{reftime}.grib2 --input.config " +
+subprocess.run(f"fimex-1.9 --input.file {OUTDIR}daily_archive_{reftime}.grib2 --input.config " +
                f"{base_path}cdmGribReaderConfig.xml --output.file {OUTDIR}daily_archive_{reftime}.nc",
                shell=True, check=True)

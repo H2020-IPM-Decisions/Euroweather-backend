@@ -45,7 +45,7 @@ if ready:
         subprocess.run(f"cat {OUTDIR}grib/*{reftime}*.grib2 > {OUTDIR}forecast_{reftime}.grib2",
                        shell=True, check=True)
         logger.info("Converting from grib to netcdf")
-        subprocess.run(f"fimex --input.file {OUTDIR}forecast_{reftime}.grib2 --input.config " +
+        subprocess.run(f"fimex-1.9 --input.file {OUTDIR}forecast_{reftime}.grib2 --input.config " +
                        f"{base_path}cdmGribReaderConfig.xml --output.file {OUTDIR}all{reftime}.nc",
                        shell=True, check=True)
         dwd_poller.latest_reftime = reftime
