@@ -1,1 +1,3 @@
 /outdir
+# Ignore log-files
+*.log
