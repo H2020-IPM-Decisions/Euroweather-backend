@@ -324,8 +324,8 @@ class Interpolator():
                         self.ff10m.append(self.getData(['wind_speed_10m', 'ga_10si_103'], ii))
                         self.ps.append(self.getData(['surface_air_pressure'], ii))
                         # ga_8_1_0_1 is hourly data from MeteoFrance
-                        if self.getData(["ga_8_1_0_1"], ii) is not None:
-                            self.rr.append(self.getData(["ga_8_1_0_1"], ii))
+                        if self.getData(["hourly_precipitation", "ga_8_1_0_1"], ii) is not None:
+                            self.rr.append(self.getData(["hourly_precipitation", "ga_8_1_0_1"], ii))
 
                         ook[2] = ook[2]+1
                     else:
