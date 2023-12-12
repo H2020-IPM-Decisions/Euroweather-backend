@@ -185,8 +185,8 @@ An example of a crontab entry:
 As mentioned above, The gatekeeper process needs to be run separately for INIT and UPDATE jobs. In addition, if the frontend and backend are separated (which is higly recommended), the `coms_init/` and `coms_update/` folders need to be synchronized before and after running the processes. Also, bearing in mind that the INIT job could be quite time consuming, the INIT and UPDATE jobs should not be run simultaneously
 
 Example script for running the jobs in sequence is given in `run_gatekeeper_example.sh` 
-Run it e.g. once every hour using crontab (if your server is quick enough)
+Run it e.g. once every 6 hours using crontab
 
 ```
-0 * * * * /opt/Euroweather-backend/run_gatekeeper.sh
+0 */6 * * * /opt/Euroweather-backend/run_gatekeeper.sh
 ```
