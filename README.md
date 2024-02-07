@@ -1,4 +1,7 @@
-# Euroweather backend service
+# ~~Euroweather backend service~~ [DEPRECATED]
+
+**This application is not in active use anymore, the IPM Decisions project has replaced it with the services from [open-meteo.com](https://open-meteo.com/)**
+
 This service downloads gridded weather forecasts covering Europe from Deutsche Wetterdienst and produces Json weather data for requested locations. The data spans from the start of the season (or later) and approximately 72 hours ahead of time. 
 
 The resulting Json data is consumed and stored for immediate access by the [Euroweather frontend service](https://github.com/H2020-IPM-Decisions/Euroweather-frontend).
