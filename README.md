@@ -47,7 +47,7 @@ The `python/` folder contains the operative and data files. The `run_eu` script 
 ### daily_archive_YYYYMMDD.nc
 These contain hourly values for the above mentioned parameters. The timezone is UTC. 
 
-### daily_aggregated_YYYYMMDD.nc
+### daily_accumulated_YYYYMMDD.nc
 These contain daily values for the following parameters:
 
 * Temperature (at 2m in &deg;C): mean, minimum and maximum
@@ -58,13 +58,10 @@ These contain daily values for the following parameters:
 ### YYYY.nc
 This is a collection of all daily_aggregated_YYYYMMDD.nc for a year
 
-
-
-
 ## Configuring the system
 ### Software requirements
 * Ubuntu Linux, tested with v 22
-* Python3
+* Python3 including xarray/numpy and netcdf4
 * [Fimex](https://github.com/metno/fimex)
 
 ### Hardware requirements
