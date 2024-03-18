@@ -30,24 +30,6 @@ month_map = {"Jan": "01", "Feb": "02", "Mar": "03",
              "Oct": "10", "Nov": "11", "Dec": "12"}
 
 
-# Helper methods
-def newer_day(last_day, new_day):
-    if int(new_day) >= int(last_day):
-        return True
-    return False
-
-
-def newer_time(last_time, new_time):
-    last_hour, last_minute = last_time.split(":")
-    new_hour, new_minute = new_time.split(":")
-    if int(new_hour) > int(last_hour):
-        return True
-    if int(new_hour) == int(last_hour):
-        if int(new_minute) > int(last_minute):
-            return True
-    return False
-
-
 class Poller():
     def __init__(self, ftp_username, ftp_password, ftp_account, latest_reftime=None,
                  ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/icon-eu/grib",
@@ -70,7 +52,8 @@ class Poller():
         main_cycles -- main model cycles, which produce long forecasts [iterable]
         self.max_leadtime -- Last lead time for main model cycles, to check for readiness [str]
         """
-        self.year = str(datetime.date.today().year)
+        self.year = datetime.date.today().year
+        self.month = datetime.date.today().month
         self.ftp_username = ftp_username
         self.ftp_password = ftp_password
         self.ftp_account = ftp_account
@@ -84,8 +67,12 @@ class Poller():
         return None
 
     def poll(self):
-        last_day = "00"
-        last_time = "00:00"
+        # Sets last_date to last january 1st
+        last_date = datetime.datetime(self.year-1, 1, 1, 1, 1)
+        # Define variables found in the iteration
+        latest = None
+        last_month = None
+        last_day = None
         # Connect to FTP
         with ftplib.FTP(self.ftp_url, user=self.ftp_username, passwd=self.ftp_password,
                         acct=self.ftp_account) as ftp:
@@ -108,18 +95,23 @@ class Poller():
                         *_, month, day, time, name = line.split()
                         # check lai, a time-invariant variable
                         if name == "lai":
-                            if newer_day(last_day, day):
+                            month = month_map[month]
+                            hour, minute = time.split(":")
+                            hour, minute = int(hour), int(minute)
+                            new_date = datetime.datetime(self.year, int(month), int(day), hour, minute)
+                            if new_date > last_date:
+                                # Since last_date is always a year behind, latest will be found
+                                last_date = new_date
+                                last_month = month
                                 last_day = day
-                                if newer_time(last_time, time):
-                                    last_time = time
-                                    latest_month = month_map[month]
-                                    latest = run_name
+                                latest = run_name
+
                     ftp.cwd("../")
 
-            # If latest is not None, check if latest has been downloaded before 
+            # If latest is not None, check if latest has been downloaded before
             # (if self.latest_reftime is not none)
             if latest is not None:
-                reftime = self.year+latest_month+last_day+latest
+                reftime = str(self.year)+last_month+last_day+latest
                 logger.info(f"Found newest folder to be {latest} with forecast ref {reftime}")
                 if reftime == self.latest_reftime:
                     logger.info("Newest folder is already registered")
