@@ -1,0 +1,143 @@
+#!/usr/bin/python3
+"""
+    Copyright (C) 2023  Johannes Tobiassen Langvatn, Met Norway
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+import os
+import sys
+import logging
+import numpy as np
+import xarray as xr
+from datetime import timedelta, date
+from config_and_logger import init_logging, init_config
+
+
+logger = logging.getLogger(__name__)
+init_logging(logger)
+CONFIG = init_config()
+
+base_path = CONFIG.get("base_path")
+archive_cycles = CONFIG.get("archive_cycles")
+main_cycles = CONFIG.get("main_cycles")
+cycle_nr = len(archive_cycles)
+INDIR = base_path + "outdir/"
+OUTDIR = base_path + "outdir/"
+
+
+def daterange(startdate, enddate):
+    """Iterator to return single datetime for a range startdate to enddate"""
+    for number in range(int((enddate - startdate).days)):
+        yield startdate + timedelta(number)
+
+
+def date_from_reftime(reftime):
+    """
+    Takes a zero-padded reftime string (YYYYMMDD) and returns a
+    datetime date object
+    """
+    year = int(reftime[0:4])
+    month = int(reftime[4:6])
+    day = int(reftime[6:8])
+    return date(year, month, day)
+
+
+def accumulate_variables(input_netcdf_path, output_netcdf_path):
+    """
+    Accumulates variables for use in EUROWEATHER (2)
+    Assumes wind_speed instead of x_wind_10m and y_wind_10m
+    """
+    ds = xr.open_dataset(input_netcdf_path)
+
+    ds["air_temperature_2m_max"] = ds["air_temperature_2m"].max(dim="time")
+    ds["air_temperature_2m_min"] = ds["air_temperature_2m"].min(dim="time")
+    ds["air_temperature_2m_mean"] = ds["air_temperature_2m"].mean(dim="time")
+
+    ds["relative_humidity_2m_mean"] = ds["relative_humidity_2m"].mean(dim="time")
+    ds["relative_humidity_2m_max"] = ds["relative_humidity_2m"].max(dim="time")
+
+    ds["total_precipitation"] = ds["hourly_precipitation"].sum(dim="time")
+
+    ds["mean_wind_speed_10m"] = ds["wind_speed_10m"].mean(dim="time")
+
+    ds = ds.drop_vars(["air_temperature_2m", "relative_humidity_2m", "hourly_precipitation",
+                       "forecast_reference_time", "wind_speed_10m"])
+    ds.isel(time=[0]).to_netcdf(output_netcdf_path)
+    ds.close()
+
+
+def archive_day(reftime, day_before):
+    """
+    Archives a day of forecasted weather with date reftime (formatted as a string: YYYYMMDD),
+    and the day_before (reftime of the day before)
+    """
+    yesterday = f"all{day_before}{main_cycles[-1]}.nc"
+    ds_list = []
+    not_first = False
+    for cycle in main_cycles:
+        today_i = f"all{reftime}{cycle}.nc"
+        if not_first:
+            ds_list.append(xr.open_dataset(INDIR+today_i).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time"))
+        else:
+            ds_list.append(xr.open_dataset(INDIR+today_i).isel(time=range(1, cycle_nr+1)))
+            not_first = True
+
+    ds = xr.open_dataset(INDIR+yesterday).isel(time=[cycle_nr-1, cycle_nr]).drop_vars("forecast_reference_time")
+
+    out_ds = xr.merge([ds]+ds_list)
+    out_ds["hourly_precipitation"] = out_ds["total_precipitation"].diff(dim="time")
+    # Convert temperature from Kelvin to Celsius
+    if out_ds["air_temperature_2m"].attrs["units"] == "K":
+        out_ds["air_temperature_2m"].values = out_ds["air_temperature_2m"].values - 273.15
+        out_ds["air_temperature_2m"].attrs["units"] = "degC"
+    # Convert componental wind speed to wind speed
+    out_ds["wind_speed_10m"] = np.sqrt(out_ds["x_wind_10m"]**2 + out_ds["y_wind_10m"]**2)
+
+    temp = []
+    for index, _ in enumerate(out_ds.time):
+        # Reverts the non-accumulated (first hours) to original value
+        # Must be -2 since index begins at 00, and we have want to restore 01
+        # and time=0 maps to hour 23 (i.e time=1 -> hour 00 and time=2 hour 01)
+        if (index-2)%cycle_nr == 0:
+            temp_value = out_ds["total_precipitation"].isel(time=index).values
+        else:
+            temp_value = out_ds["hourly_precipitation"].isel(time=index).values
+        temp_value = np.where(temp_value < 0, 0, temp_value)
+        temp.append(temp_value)
+
+    out_ds["hourly_precipitation"].values = temp
+    out_ds = out_ds.drop_vars(["total_precipitation", "x_wind_10m", "y_wind_10m"])
+    ds.close()
+    return out_ds
+
+
+if __name__ == "__main__":
+    reftime_start = sys.argv[1]
+    reftime_stop = sys.argv[2]
+
+    start_date = date_from_reftime(reftime_start)
+    day_before = (start_date - timedelta(days=1)).strftime("%Y%m%d")
+    end_date = date_from_reftime(reftime_stop)
+
+    for single_date in daterange(start_date, end_date):
+        reftime = single_date.strftime("%Y%m%d")
+        if os.path.isfile(f"{OUTDIR}daily_accumulated_{reftime}.nc"):
+            day_before = reftime
+            continue
+        ds = archive_day(reftime, day_before)
+        ds.isel(time=range(1, 25)).to_netcdf(f"{OUTDIR}daily_archive_{reftime}.nc")
+        ds.close()
+
+        accumulate_variables(f"{OUTDIR}daily_archive_{reftime}.nc", f"{OUTDIR}daily_accumulated_{reftime}.nc")
+        day_before = reftime
