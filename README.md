@@ -1,4 +1,7 @@
-# Euroweather backend service
+# ~~Euroweather backend service~~ [DEPRECATED]
+
+**This application is not in active use anymore, the IPM Decisions project has replaced it with the services from [open-meteo.com](https://open-meteo.com/)**
+
 This service downloads gridded weather forecasts covering Europe from Deutsche Wetterdienst and produces Json weather data for requested locations. The data spans from the start of the season (or later) and approximately 72 hours ahead of time. 
 
 The resulting Json data is consumed and stored for immediate access by the [Euroweather frontend service](https://github.com/H2020-IPM-Decisions/Euroweather-frontend).
@@ -185,8 +188,8 @@ An example of a crontab entry:
 As mentioned above, The gatekeeper process needs to be run separately for INIT and UPDATE jobs. In addition, if the frontend and backend are separated (which is higly recommended), the `coms_init/` and `coms_update/` folders need to be synchronized before and after running the processes. Also, bearing in mind that the INIT job could be quite time consuming, the INIT and UPDATE jobs should not be run simultaneously
 
 Example script for running the jobs in sequence is given in `run_gatekeeper_example.sh` 
-Run it e.g. once every hour using crontab (if your server is quick enough)
+Run it e.g. once every 6 hours using crontab
 
 ```
-0 * * * * /opt/Euroweather-backend/run_gatekeeper.sh
+0 */6 * * * /opt/Euroweather-backend/run_gatekeeper.sh
 ```
