@@ -20,6 +20,7 @@ import logging
 import subprocess
 from poller_and_downloader import Poller, Downloader
 from config_and_logger import init_logging, init_config
+from forecaster import forecaster
 
 logger = logging.getLogger(__name__)
 init_logging(logger)
@@ -37,7 +38,7 @@ if ready:
     DOWNLOADED = False
     dwd_downloader = Downloader(
         dwd_poller, OUTDIR+"grib/")
-    if not os.path.isfile(OUTDIR + f"forecast_{reftime}.grib2"):
+    if not os.path.isfile(OUTDIR + f"all{reftime}.nc"):
         DOWNLOADED = dwd_downloader.download_and_unzip(reftime)
 
     if DOWNLOADED:
@@ -46,8 +47,10 @@ if ready:
                        shell=True, check=True)
         logger.info("Converting from grib to netcdf")
         subprocess.run(f"fimex-1.9 --input.file {OUTDIR}forecast_{reftime}.grib2 --input.config " +
-                       f"{base_path}cdmGribReaderConfig.xml --output.file {OUTDIR}all{reftime}.nc",
+                       f"{base_path}cdmGribReaderConfig.xml --output.file {OUTDIR}all{reftime}_tmp.nc",
                        shell=True, check=True)
-        dwd_poller.latest_reftime = reftime
+        forecaster(f"{OUTDIR}all{reftime}_tmp.nc", f"{OUTDIR}all{reftime}.nc")
+        os.remove(f"{OUTDIR}all{reftime}_tmp.nc")
+
     else:
         logger.info("Forecast was ready, but not downloaded")
