@@ -1,0 +1,6 @@
+base_path : /opt/Euroweather-backend/python/
+FTP_username : Anonymous
+FTP_password : null
+FTP_account : null
+main_cycles : ["00", "06", "12", "18"]
+archive_cycles: ["_001_", "_002_", "_003_", "_004_", "_005_", "_006_"]
