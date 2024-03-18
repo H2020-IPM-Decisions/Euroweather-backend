@@ -1,3 +1,5 @@
 /outdir
+# path to archive
+/euroweatherdata
 # Ignore log-files
 *.log
