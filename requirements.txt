@@ -2,3 +2,4 @@ numpy
 xarray
 netCDF4
 braceexpand
+dask
