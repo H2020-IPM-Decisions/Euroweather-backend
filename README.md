@@ -7,7 +7,7 @@ The files are suitable for calculating pest/disease risk maps for Europe.
 
 ![Example temperature map showing the covered area](./map.png "Example temperature map showing the covered area")
 
-&copy; 2024 [NIBIO](https://nibio.no/en) and [Met Norway](https://www.met.no/en)
+&copy; 2024 [Met Norway](https://www.met.no/en) and [NIBIO](https://nibio.no/en) 
 
 Authors: Johannes Tobiassen Langvatn (Met Norway) and Tor-Einar Skog (NIBIO)
 
