@@ -34,9 +34,8 @@ os.makedirs(ALL_PATH+"grib", exist_ok=True)
 dwd_poller = Poller("Anonymous", "", "", main_cycles=CONFIG.get("main_cycles"))
 reftime, ready = dwd_poller.poll()
 logger.info(f"Reftime was found to be {reftime} with status {ready}")
-reftime = "2024040800"
 if ready:
-    DOWNLOADED = True
+    DOWNLOADED = False
     dwd_downloader = Downloader(
         dwd_poller, ALL_PATH+"grib/")
     if not os.path.isfile(ALL_PATH + f"all{reftime}.nc"):
