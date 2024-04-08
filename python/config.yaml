@@ -1,4 +1,6 @@
-base_path : /opt/Euroweather-backend/python/
+all_path : /opt/Euroweather-backend/python//outdir/
+archive_path : /opt/Euroweather-backend/python/outdir/
+base_path : /opt/Euroweather-backend/python/python/
 FTP_username : Anonymous
 FTP_password : null
 FTP_account : null

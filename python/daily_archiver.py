@@ -33,28 +33,27 @@ day_before = date.today() - timedelta(days=2)
 reftime = reftime.strftime("%Y%m%d")
 day_before = day_before.strftime("%Y%m%d")
 
-base_path = CONFIG.get("base_path")
 archive_cycles = CONFIG.get("archive_cycles")
 main_cycles = CONFIG.get("main_cycles")
-OUTDIR = base_path + "outdir/"
+ARCHIVE_PATH = CONFIG.get("archive_path")
 
 ds = archive_day(reftime, day_before)
-ds.isel(time=range(1, 25)).to_netcdf(f"{OUTDIR}daily_archive_{reftime}.nc")
+ds.isel(time=range(1, 25)).to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
 ds.close()
 
-accumulate_variables(f"{OUTDIR}daily_archive_{reftime}.nc", f"{OUTDIR}daily_accumulated_{reftime}.nc")
+accumulate_variables(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc")
 
 # Append newly created accumulated to the year file if it exists:
 # If it does not exist, rename daily_accumulated_REFTIME.nc to YEAR.nc (only happens on 1st of january)
-if os.path.isfile(f"{OUTDIR}{YEAR}.nc"):
-    ds = xr.open_mfdataset([f"{OUTDIR}{YEAR}.nc", f"{OUTDIR}daily_accumulated_{reftime}.nc"], lock=False)
+if os.path.isfile(f"{ARCHIVE_PATH}{YEAR}.nc"):
+    ds = xr.open_mfdataset([f"{ARCHIVE_PATH}{YEAR}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc"], lock=False)
     if ds.time.values[-1] == ds.time.values[-2]:
         # To prevent appending to an already existing archive to the year-file
         logger.warning("Archiver was run, but the forecast time was already archived. Exiting")
         sys.exit()
 else:
-    ds = xr.open_mfdataset([f"{OUTDIR}daily_accumulated_{reftime}.nc"], lock=False)
+    ds = xr.open_mfdataset([f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc"], lock=False)
 
-ds.to_netcdf(f"{OUTDIR}{YEAR}.nc_tmp")
+ds.to_netcdf(f"{ARCHIVE_PATH}{YEAR}.nc_tmp")
 ds.close()
-os.rename(f"{OUTDIR}{YEAR}.nc_tmp", f"{OUTDIR}{YEAR}.nc")
+os.rename(f"{ARCHIVE_PATH}{YEAR}.nc_tmp", f"{ARCHIVE_PATH}{YEAR}.nc")

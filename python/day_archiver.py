@@ -28,12 +28,11 @@ logger = logging.getLogger(__name__)
 init_logging(logger)
 CONFIG = init_config()
 
-base_path = CONFIG.get("base_path")
+ALL_PATH = CONFIG.get("all_path")
+ARCHIVE_PATH = CONFIG.get("archive_path")
 archive_cycles = CONFIG.get("archive_cycles")
 main_cycles = CONFIG.get("main_cycles")
 cycle_nr = len(archive_cycles)
-INDIR = base_path + "outdir/"
-OUTDIR = base_path + "outdir/"
 
 
 def daterange(startdate, enddate):
@@ -53,7 +52,7 @@ def date_from_reftime(reftime):
     return date(year, month, day)
 
 
-def accumulate_variables(input_netcdf_path, output_netcdf_path):
+def accumulate_variables(input_netcdf_path, output_netcdf_path, forecast_drop=True):
     """
     Accumulates variables for use in EUROWEATHER (2)
     Assumes wind_speed instead of x_wind_10m and y_wind_10m
@@ -72,7 +71,9 @@ def accumulate_variables(input_netcdf_path, output_netcdf_path):
     ds["mean_wind_speed_10m"] = ds["wind_speed_10m"].mean(dim="time")
 
     ds = ds.drop_vars(["air_temperature_2m", "relative_humidity_2m", "hourly_precipitation",
-                       "forecast_reference_time", "wind_speed_10m"])
+                       "wind_speed_10m"])
+    if forecast_drop is True:
+        ds = ds.drop_vars(["forecast_reference_time"])
     ds.isel(time=[0]).to_netcdf(output_netcdf_path)
     ds.close()
 
@@ -88,12 +89,12 @@ def archive_day(reftime, day_before):
     for cycle in main_cycles:
         today_i = f"all{reftime}{cycle}.nc"
         if not_first:
-            ds_list.append(xr.open_dataset(INDIR+today_i).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time"))
+            ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time"))
         else:
-            ds_list.append(xr.open_dataset(INDIR+today_i).isel(time=range(1, cycle_nr+1)))
+            ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1)))
             not_first = True
 
-    ds = xr.open_dataset(INDIR+yesterday).isel(time=[cycle_nr-1, cycle_nr]).drop_vars("forecast_reference_time")
+    ds = xr.open_dataset(ALL_PATH+yesterday).isel(time=[cycle_nr-1, cycle_nr]).drop_vars("forecast_reference_time")
 
     out_ds = xr.merge([ds]+ds_list)
     out_ds["hourly_precipitation"] = out_ds["total_precipitation"].diff(dim="time")
@@ -132,12 +133,12 @@ if __name__ == "__main__":
 
     for single_date in daterange(start_date, end_date):
         reftime = single_date.strftime("%Y%m%d")
-        if os.path.isfile(f"{OUTDIR}daily_accumulated_{reftime}.nc"):
+        if os.path.isfile(f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc"):
             day_before = reftime
             continue
         ds = archive_day(reftime, day_before)
-        ds.isel(time=range(1, 25)).to_netcdf(f"{OUTDIR}daily_archive_{reftime}.nc")
+        ds.isel(time=range(1, 25)).to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
         ds.close()
 
-        accumulate_variables(f"{OUTDIR}daily_archive_{reftime}.nc", f"{OUTDIR}daily_accumulated_{reftime}.nc")
+        accumulate_variables(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc")
         day_before = reftime
