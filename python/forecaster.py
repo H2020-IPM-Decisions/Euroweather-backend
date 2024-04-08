@@ -49,7 +49,7 @@ def forecast_archiver(inpath, reftime):
         all_12 = xr.open_dataset(ALL_PATH+all_2).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
         ds_list = [ds_yesterday, all_00, all_06, all_12, all_ds.isel(time=first_day)]
     second_day = range(offset, offset + 24)
-    third_day = range(2*offset, 2*offset + 24)
+    third_day = range(offset + 24, offset + 24*2)
 
     out_ds = xr.merge(ds_list)
     out_ds = out_ds.drop_vars(["total_precipitation", "x_wind_10m", "y_wind_10m"])
