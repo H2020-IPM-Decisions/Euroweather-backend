@@ -27,22 +27,22 @@ def forecast_archiver(inpath, reftime):
     all_ds = xr.open_dataset(inpath).drop_vars("forecast_reference_time")
 
     if cycle == "00":
-        offset = 25
+        offset = 25-(1+6*0)
         first_day = range(1, offset)
         ds_list = [ds_yesterday, all_ds.isel(time=first_day)]
     elif cycle == "06":
-        offset = 25-7
+        offset = 25-(1+6*1)
         first_day = range(1, offset)
         all_00 = xr.open_dataset(ALL_PATH+all_0).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
         ds_list = [ds_yesterday, all_00, all_ds.isel(time=first_day)]
     elif cycle == "12":
-        offset = 25-13
+        offset = 25-(1+6*2)
         first_day = range(1, offset)
         all_00 = xr.open_dataset(ALL_PATH+all_0).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
         all_06 = xr.open_dataset(ALL_PATH+all_1).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
         ds_list = [ds_yesterday, all_00, all_06, all_ds.isel(time=first_day)]
     elif cycle == "18":
-        offset = 25-19
+        offset = 25-(1+6*3)
         first_day = range(1, offset)
         all_00 = xr.open_dataset(ALL_PATH+all_0).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
         all_06 = xr.open_dataset(ALL_PATH+all_1).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time")
@@ -79,12 +79,14 @@ def forecast_archiver(inpath, reftime):
                                f"{ARCHIVE_PATH}daily_accumulated_{reftime[:-2]}.nc",
                                f"{ARCHIVE_PATH}daily_accumulated_{date_plus_1.strftime('%Y%m%d')}.nc",
                                f"{ARCHIVE_PATH}daily_accumulated_{date_plus_2.strftime('%Y%m%d')}.nc"],
+                               decode_times=False,
                                lock=False)
     else:
         ds = xr.open_mfdataset([
                                f"{ARCHIVE_PATH}daily_accumulated_{reftime[:-2]}.nc",
                                f"{ARCHIVE_PATH}daily_accumulated_{date_plus_1.strftime('%Y%m%d')}.nc",
                                f"{ARCHIVE_PATH}daily_accumulated_{date_plus_2.strftime('%Y%m%d')}.nc"],
+                               decode_times=False,
                                lock=False)
     ds.to_netcdf(f"{ARCHIVE_PATH}{year}_with_forecast_tmp.nc")
     ds.close()
