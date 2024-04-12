@@ -20,37 +20,39 @@ import logging
 import subprocess
 from poller_and_downloader import Poller, Downloader
 from config_and_logger import init_logging, init_config
-from forecaster import forecaster
+from forecaster import forecaster, forecast_archiver
 
 logger = logging.getLogger(__name__)
 init_logging(logger)
 CONFIG = init_config()
-
 base_path = CONFIG.get("base_path")
-logger.debug(f"Base path is: {base_path}")
-OUTDIR = base_path + "outdir/"
-os.makedirs(OUTDIR+"grib", exist_ok=True)
+ALL_PATH = CONFIG.get("all_path")
+ARCHIVE_PATH = CONFIG.get("archive_path")
+logger.debug(f"\nAll path is: {ALL_PATH}\nArchive path is: {ARCHIVE_PATH}")
+
+os.makedirs(ALL_PATH+"grib", exist_ok=True)
 dwd_poller = Poller("Anonymous", "", "", main_cycles=CONFIG.get("main_cycles"))
 reftime, ready = dwd_poller.poll()
 logger.info(f"Reftime was found to be {reftime} with status {ready}")
-
 if ready:
     DOWNLOADED = False
     dwd_downloader = Downloader(
-        dwd_poller, OUTDIR+"grib/")
-    if not os.path.isfile(OUTDIR + f"all{reftime}.nc"):
+        dwd_poller, ALL_PATH+"grib/")
+    if not os.path.isfile(ALL_PATH + f"all{reftime}.nc"):
         DOWNLOADED = dwd_downloader.download_and_unzip(reftime)
 
     if DOWNLOADED:
         logger.info("Catting forecast-gribs")
-        subprocess.run(f"cat {OUTDIR}grib/*{reftime}*.grib2 > {OUTDIR}forecast_{reftime}.grib2",
+        subprocess.run(f"cat {ALL_PATH}grib/*{reftime}*.grib2 > {ALL_PATH}forecast_{reftime}.grib2",
                        shell=True, check=True)
         logger.info("Converting from grib to netcdf")
-        subprocess.run(f"fimex-1.9 --input.file {OUTDIR}forecast_{reftime}.grib2 --input.config " +
-                       f"{base_path}cdmGribReaderConfig.xml --output.file {OUTDIR}all{reftime}_tmp.nc",
+        subprocess.run(f"fimex-1.9 --input.file {ALL_PATH}forecast_{reftime}.grib2 --input.config " +
+                       f"{base_path}cdmGribReaderConfig.xml --output.file {ALL_PATH}all{reftime}_tmp.nc",
                        shell=True, check=True)
-        forecaster(f"{OUTDIR}all{reftime}_tmp.nc", f"{OUTDIR}all{reftime}.nc")
-        os.remove(f"{OUTDIR}all{reftime}_tmp.nc")
+        forecaster(f"{ALL_PATH}all{reftime}_tmp.nc", f"{ALL_PATH}all{reftime}.nc")
+        os.remove(f"{ALL_PATH}all{reftime}_tmp.nc")
+        logger.info(f"Readied the forecast at {ALL_PATH}all{reftime}.nc")
+        forecast_archiver(f"{ALL_PATH}all{reftime}.nc", reftime)
 
     else:
         logger.info("Forecast was ready, but not downloaded")
