@@ -40,23 +40,32 @@ only the parameters relevant for IPM Decisions. These are
 * Relative humidity (at 2m in %)
 * Wind speed (at 10m in m/s)
 
+## Data flow
+The data flow is illustrated below
+![Data flow](./docs/illustrations/euroweather2_data_flow.png "Data flow")
 
-## Downloading and extracting data from Deutscher Wetterdienst (DWD)
-The `python/` folder contains the operative and data files. The `run_eu` script downloads the data downloaded from DWD and collects them into grib2 files named `forecast_YYYYMMDDHH.grib2`. Then, `daily_archiver.py` converts the contents of the grib files into three sets of NetCDF files:
 
-### daily_archive_YYYYMMDD.nc
-These contain hourly values for the above mentioned parameters. The timezone is UTC. 
+### Downloading and extracting data from Deutscher Wetterdienst (DWD)
+Every six hours (00, 06, 12, 18), DWD issues their main forecast files, which are single files for each parameter and every hour (0-78). So for each run we download five files (RELHUM, TOT_PREC, T_2M, U_10M, v_10M) times 79 hours = 445 files. These 445 files are concatenated into one grib2 file for the DWD "six-hour run", e.g. `python/outdir/forecast_2024041618.grib2`
 
-### daily_accumulated_YYYYMMDD.nc
-These contain daily values for the following parameters:
+### Converting from grib2 to NetCDF and adapting parameters
+The parameters in the `forecast_*` files need a bit of conversion: Temperature from K to &deg;C and the wind vectors need to be converted into speed. The file format is also converted to NetCDF, e.g. `python/outdir/all2024041618.nc`
 
+### Organizing data into daily files
+Each `all_*` file contains 79 hours of values, so there's a lot of overlap. The values for the most recent runs are kept, and hourly values are collected in groups of DD00-DD23 (UTC), e.g. `python/outdir/daily_archive_20240416.nc`. Files up until the day after tomorrow are generated.
+
+### Aggregating daily values
+Daily values are aggregated from the hourly sets, so that the daily parameters are:
 * Temperature (at 2m in &deg;C): mean, minimum and maximum
 * Total precipitation (in mmm)
 * Relative humidity (at 2m in %): mean and maximum
 * Wind speed (at 10m in m/s): mean
+These aggregate values are placed in these files:
+* `python/outdir/daily_accumulated_20240417.nc` (one per day)
+* `python/outdir/2024.nc` (all daily values in one year)
+* `python/outdir/2024_with_forecasts.nc` (all daily values in one year, including today, tomorrow and the day after)
 
-### YYYY.nc
-This is a collection of all daily_aggregated_YYYYMMDD.nc for a year
+
 
 ## Configuring the system
 ### Software requirements
@@ -103,6 +112,9 @@ An example of a crontab entry:
 0 1 * * * /opt/Euroweather-backend/python/daily_archiver.py
 ```
 
-
 ### Data maintenance
-`daily_archiver.py` automatically generates new files - such as YYYY.nc, but it deletes nothing. The application mananger must archive data as they see fit.
+`daily_archiver.py` automatically generates new files - such as YYYY.nc, but it deletes nothing. The application mananger must archive data as they see fit. A yearly maintenance recommendation could be:
+* Keep the source files from DWD
+* Delete last year's `forecast_*.grib2` files
+* Delete last year's `daily_accumulated_*` files
+* Keep `daily_archive_*.nc` and `YYYY.nc`
