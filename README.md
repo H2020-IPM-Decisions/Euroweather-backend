@@ -115,6 +115,9 @@ An example of a crontab entry:
 ### Data maintenance
 `daily_archiver.py` automatically generates new files - such as YYYY.nc, but it deletes nothing. The application mananger must archive data as they see fit. A yearly maintenance recommendation could be:
 * Keep the source files from DWD
+
+    There are so many of them that the regular `mv` or `cp` commands don't work. This works, however: `find . -name 'icon-eu_europe_regular-lat-lon_single-level_2023*' -exec mv {} /opt/archive/2023/grib/ \;` (Substitute with your paths and year)
 * Delete last year's `forecast_*.grib2` files
+* Delete last year's `all*.nc` files
 * Delete last year's `daily_accumulated_*` files
 * Keep `daily_archive_*.nc` and `YYYY.nc`
