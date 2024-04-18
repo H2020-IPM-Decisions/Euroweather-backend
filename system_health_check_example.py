@@ -60,7 +60,7 @@ def get_most_recent_file(file_expr):
 def check_recent_file(file_expr, timestamp_expr, hours_delta):
     global error_msg, exit_code
     # Check how recent the .nc-files in python/outdir are
-    most_recent_file = get_most_recent_file(file_expr)
+    most_recent_file = os.path.basename(get_most_recent_file(file_expr))
     # Get the date stamp for now - 12 h, create a "allYYYYmmddhh.nc" filename and compare
     threshold_filename=f"{file_expr}" % datetime.strftime(datetime.now(timezone.utc) + timedelta(hours=hours_delta),timestamp_expr)
 
