@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-#    Copyright (C) 2021  Tor-Einar Skog, NIBIO
+#    Copyright (C) 2021-2024  Tor-Einar Skog, NIBIO
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -16,16 +16,14 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-# Health check of the system. Currently, the only check is that
-# * The latest NetCDF file is from a model run maximum 12 hours ago
+# Health check of the system. 
 #
-# Usage: 
-# * Copy this example file to "system_health_check.py", make adjustments and run from the console. 
-# * Returns 1 if everything is OK, 0 otherwise
+# Usage: Run from the console. Returns 1 if everything is OK, 0 otherwise
 
 import os
 import sys
 import glob
+import psutil
 from datetime import datetime, timezone, timedelta
 
 from smtplib import SMTP
@@ -34,32 +32,60 @@ from email.mime.text import MIMEText
 SITE_ROOT = os.path.dirname(os.path.realpath(__file__))
 
 # Set this to True if you want to receive email notifications on system.exit(1)
-SEND_EMAIL_ALERT = False
-EMAIL_RECIPIENT = "foo@bar.com"
-EMAIL_SENDER = "noreply@bar.com"
-SMTP_HOST = "mail.bar.com"
+SEND_EMAIL_ALERT = True
+EMAIL_RECIPIENT = "foobar@test.com"
+EMAIL_SENDER = "barfoo@test.com"
+SMTP_HOST = "smtp.foo.bar"
+DATA_DIR_RELATIVE_PATH = "/python/outdir/"
 
 DEBUG = False
 
-# Check how recent the .nc-files in perl/outdir are
-nc_files = glob.glob(SITE_ROOT + "/perl/outdir/*.nc")
-most_recent_file = ""
-for nc_file in nc_files:
-    nc_file = os.path.basename(nc_file) 
-    most_recent_file = nc_file if nc_file > most_recent_file else most_recent_file
+error_msg = []
+exit_code = 0
 
-# Get the date stamp for now - 12 h, create a "allYYYYmmddhh.nc" filename and compare
-threshold_filename="all%s.nc" % datetime.strftime(datetime.now(timezone.utc) - timedelta(hours=12),"%Y%m%d%H")
+# Assuming timestamps in file names are on form YYYYMMDD[HH] <= HH is optional
+# This makes alphanumeric comparison work
+def check_recent_file(file_expr, timestamp_expr, hours_delta):
+    global error_msg, exit_code
+    # Check how recent the .nc-files in perl/outdir are
+    glob_expr = file_expr % "*"
+    nc_files = glob.glob(f"{SITE_ROOT}{DATA_DIR_RELATIVE_PATH}{glob_expr}")
+    most_recent_file = ""
+    for nc_file in nc_files:
+        nc_file = os.path.basename(nc_file) 
+        most_recent_file = nc_file if nc_file > most_recent_file else most_recent_file
 
-if DEBUG:
-    print("%s %s" %(most_recent_file,threshold_filename))
+    # Get the date stamp for now - 12 h, create a "allYYYYmmddhh.nc" filename and compare
+    threshold_filename=f"{file_expr}" % datetime.strftime(datetime.now(timezone.utc) + timedelta(hours=hours_delta),timestamp_expr)
 
-exit_code = 0 if threshold_filename < most_recent_file else 1
+    if DEBUG:
+        print(f"{SITE_ROOT}{DATA_DIR_RELATIVE_PATH}{glob_expr}")
+        print("%s %s" %(most_recent_file,threshold_filename))
+    
+    if threshold_filename >= most_recent_file:
+        exit_code = 1
+        error_msg.append(f"The latest NetCDF file {most_recent_file} is out of date")
+
+
+# The latest allYYYYMMDDHH.nc should not be older than 12 hours
+check_recent_file("all%s.nc", "%Y%m%d%H", -12)
+# The latest daily_archive_YYYYMMDD.nc should not be older than from tomorrow
+check_recent_file("daily_archive_%s.nc", "%Y%m%d", 24)
+# The latest daily_accumulated_YYYYMMDD.nc should not be older than from tomorrow
+check_recent_file("daily_accumulated_%s.nc", "%Y%m%d", 24)
+
+# When only DISK_LIMIT_GB left on disk, alert
+DISK_LIMIT_GB = 400 # 400 GB is a little over a month's worth of files
+free_space = round(psutil.disk_usage(".").free / 1073741824, 1) # 1073741824 bytes = 1 Gb
+
+if(free_space < DISK_LIMIT_GB):
+    exit_code = 1
+    error_msg.append(f"Warning: There is only {free_space} GB left on the data disk.")
 
 if exit_code != 0 and SEND_EMAIL_ALERT:
     if DEBUG:
         print("Sending email")
-    msg = MIMEText("The latest NetCDF file %s is out of date" % most_recent_file,"plain")
+    msg = MIMEText("\n".join(error_msg),"plain")
     msg["Subject"] = "Euroweather-backend ALERT: NetCDF files are out of date"
     msg["From"] = EMAIL_SENDER
     conn = SMTP(SMTP_HOST)
