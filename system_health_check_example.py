@@ -26,6 +26,7 @@ import glob
 import psutil
 import netCDF4 as nc
 from datetime import datetime, timezone, timedelta
+from typing import List
 
 from smtplib import SMTP
 from email.mime.text import MIMEText
@@ -46,7 +47,8 @@ exit_code = 0
 
 ############# Method definitions #################
 
-def get_most_recent_file(file_expr):
+def get_most_recent_file(file_expr: str) -> str:
+    """Returns the path/name of the most recent file following the file_expr pattern"""
     glob_expr = file_expr % "*"
     nc_files = glob.glob(f"{SITE_ROOT}{DATA_DIR_RELATIVE_PATH}{glob_expr}")
     most_recent_file = ""
@@ -55,9 +57,8 @@ def get_most_recent_file(file_expr):
         most_recent_file = nc_file if nc_file > most_recent_file else most_recent_file
     return f"{SITE_ROOT}{DATA_DIR_RELATIVE_PATH}{most_recent_file}"
 
-# Assuming timestamps in file names are on form YYYYMMDD[HH] <= HH is optional
-# This makes alphanumeric comparison work
-def check_recent_file(file_expr, timestamp_expr, hours_delta):
+def check_recent_file(file_expr: str, timestamp_expr: str, hours_delta: int):
+    """Checks that the most recent file is no older than now - hours_delta. Assuming timestamps in file names are on form YYYYMMDD[HH] <= HH is optional"""
     global error_msg, exit_code
     # Check how recent the .nc-files in python/outdir are
     most_recent_file = os.path.basename(get_most_recent_file(file_expr))
@@ -73,7 +74,8 @@ def check_recent_file(file_expr, timestamp_expr, hours_delta):
         exit_code = 1
         error_msg.append(f"The latest NetCDF file {most_recent_file} is out of date")
 
-def check_most_recent_file_contents(file_expr, expected_time_steps, expected_params):
+def check_most_recent_file_contents(file_expr: str, expected_time_steps: int, expected_params: List[str]):
+    """Checks that the most recent file contains the expected number of time steps and contains the expected parameters"""
     global error_msg, exit_code
     most_recent_file = get_most_recent_file(file_expr)
     dataset_metadata = nc.Dataset(f"{most_recent_file}", "r")
