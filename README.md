@@ -42,6 +42,7 @@ only the parameters relevant for IPM Decisions. These are
 
 ## Data flow
 The data flow is illustrated below
+
 ![Data flow](./docs/illustrations/euroweather2_data_flow.png "Data flow")
 
 
@@ -60,6 +61,7 @@ Daily values are aggregated from the hourly sets, so that the daily parameters a
 * Total precipitation (in mmm)
 * Relative humidity (at 2m in %): mean and maximum
 * Wind speed (at 10m in m/s): mean
+
 These aggregate values are placed in these files:
 * `python/outdir/daily_accumulated_20240417.nc` (one per day)
 * `python/outdir/2024.nc` (all daily values in one year)
