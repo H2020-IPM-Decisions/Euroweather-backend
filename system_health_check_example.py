@@ -108,7 +108,7 @@ check_most_recent_file_contents("daily_accumulated_%s.nc", 1,['air_temperature_2
 
 # When only DISK_LIMIT_GB left on disk, alert
 DISK_LIMIT_GB = 400 # 400 GB is a little over a month's worth of files
-free_space = round(psutil.disk_usage(".").free / 1073741824, 1) # 1073741824 bytes = 1 Gb
+free_space = round(psutil.disk_usage(f"{SITE_ROOT}{DATA_DIR_RELATIVE_PATH}").free / 1073741824, 1) # 1073741824 bytes = 1 Gb
 
 if(free_space < DISK_LIMIT_GB):
     exit_code = 1
