@@ -97,8 +97,16 @@ def forecaster(inpath, outpath):
     """
     Converts to wind speed, calculates hourly precipitation,
     converts temperature to Celsius if temperature is in Kelvin
+    converts ASOB_S [W/m2] (Average Net short-wave radiation flux at surface)
+    to Hourly Net short-wave radiation (Which will be computed to daily values)
     """
     ds = xr.open_dataset(inpath)
+    surface_rad = "surface_net_downward_shortwave_flux"
+    ds[surface_rad] = ds["ASOB_S"]
+    for time in range(len(ds.time.values)):
+        ds[surface_rad].values[time, :, :, :] *= time
+    ds[surface_rad] = ds[surface_rad].diff(dim="time")
+    ds[surface_rad].attrs["standard_name"] = surface_rad
     ds["hourly_precipitation"] = ds["total_precipitation"].diff(dim="time")
     if ds["air_temperature_2m"].attrs["units"] == "K":
         ds["air_temperature_2m"].values = ds["air_temperature_2m"].values - 273.15

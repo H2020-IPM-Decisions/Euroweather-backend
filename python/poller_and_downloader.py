@@ -34,7 +34,7 @@ class Poller():
     def __init__(self, ftp_username, ftp_password, ftp_account, latest_reftime=None,
                  ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/icon-eu/grib",
                  variable_base="icon-eu_europe_regular-lat-lon_single-level_",
-                 variable_list=("t_2m", "relhum_2m", "v_10m", "u_10m", "tot_prec"),
+                 variable_list=("t_2m", "relhum_2m", "v_10m", "u_10m", "tot_prec", "asob_s"),
                  main_cycles=("00", "06", "12", "18"), max_leadtime="_078_"):
         """
         Initiates an object with ftp credentials and ftp url.
