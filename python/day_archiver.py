@@ -70,8 +70,11 @@ def accumulate_variables(input_netcdf_path, output_netcdf_path, forecast_drop=Tr
 
     ds["mean_wind_speed_10m"] = ds["wind_speed_10m"].mean(dim="time")
 
+    # Converts W/m2 to MJ/m2
+    ds["daily_surface_net_downward_shortwave_flux"] = ds["surface_net_downward_shortwave_flux"].sum(dim="time") * 0.0036
+    ds["daily_surface_net_downward_shortwave_flux"].attrs["units"] = "MJ/m^2"
     ds = ds.drop_vars(["air_temperature_2m", "relative_humidity_2m", "hourly_precipitation",
-                       "wind_speed_10m"])
+                       "wind_speed_10m", "surface_net_downward_shortwave_flux"])
     if forecast_drop is True:
         ds = ds.drop_vars(["forecast_reference_time"])
     ds.isel(time=[0]).to_netcdf(output_netcdf_path)
