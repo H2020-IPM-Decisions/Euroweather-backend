@@ -113,7 +113,7 @@ def forecaster(inpath, outpath):
         ds["air_temperature_2m"].values = ds["air_temperature_2m"].values - 273.15
         ds["air_temperature_2m"].attrs["units"] = "degC"
     ds["wind_speed_10m"] = np.sqrt(ds["x_wind_10m"]**2 + ds["y_wind_10m"]**2)
-    ds = ds.drop_vars[["ASOB_S"]]
+    ds = ds.drop_vars(["ASOB_S"])
     ds.to_netcdf(outpath)
     ds.close()
 
