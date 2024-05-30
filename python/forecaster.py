@@ -98,11 +98,12 @@ def forecaster(inpath, outpath):
     Converts to wind speed, calculates hourly precipitation,
     converts temperature to Celsius if temperature is in Kelvin
     converts ASOB_S [W/m2] (Average Net short-wave radiation flux at surface)
-    to Hourly Net short-wave radiation (Which will be computed to daily values)
+    to Hourly Net short-wave radiation [W/m2] (Which will be computed to daily values)
     """
     ds = xr.open_dataset(inpath)
     surface_rad = "surface_net_downward_shortwave_flux"
     ds[surface_rad] = ds["ASOB_S"]
+    ds[surface_rad].attrs["units"] = "W/m^2"
     for time in range(len(ds.time.values)):
         ds[surface_rad].values[time, :, :, :] *= time
     ds[surface_rad] = ds[surface_rad].diff(dim="time")
@@ -112,6 +113,7 @@ def forecaster(inpath, outpath):
         ds["air_temperature_2m"].values = ds["air_temperature_2m"].values - 273.15
         ds["air_temperature_2m"].attrs["units"] = "degC"
     ds["wind_speed_10m"] = np.sqrt(ds["x_wind_10m"]**2 + ds["y_wind_10m"]**2)
+    ds = ds.drop_vars[["ASOB_S"]]
     ds.to_netcdf(outpath)
     ds.close()
 
