@@ -124,7 +124,7 @@ if exit_code != 0 and SEND_EMAIL_ALERT:
     if DEBUG:
         print("Sending email")
     msg = MIMEText("\n".join(error_msg),"plain")
-    msg["Subject"] = "Euroweather-backend ALERT: NetCDF files are out of date"
+    msg["Subject"] = "Euroweather-backend ALERT: Attention needed!"
     msg["From"] = EMAIL_SENDER
     conn = SMTP(SMTP_HOST)
     conn.set_debuglevel(False)
