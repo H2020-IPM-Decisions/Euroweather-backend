@@ -20,7 +20,7 @@ if datetime.now().year == year:
 
 # grib2 files in the grib folder. Raw data downloaded from DWD OpenData
 # Need to loop because there are too many files for one run of rm
-params=["RELHUM_2M","TOT_PREC","T_2M","U_10M","V_10M","ASOB"]
+params=["RELHUM_2M","TOT_PREC","T_2M","U_10M","V_10M","ASOB_S"]
 
 for month_index in range(1,13):
     month = str(month_index).zfill(2)
