@@ -21,4 +21,4 @@ for month_index in range(1,13):
     month = str(month_index).zfill(2)
     for param in params:
         print(f"rm outdir/grib/*{year}{month}*{param}.grib2")
-        subprocess.run(["rm",f"outdir/grib/*{year}{month}*{param}.grib2"])
+        subprocess.run(f"rm outdir/grib/*{year}{month}*{param}.grib2", shell=True)
