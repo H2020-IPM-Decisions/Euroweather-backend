@@ -3,4 +3,4 @@
 /euroweatherdata
 # Ignore log-files
 *.log
-.venv/*
+.venv/
