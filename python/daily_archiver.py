@@ -38,9 +38,8 @@ main_cycles = CONFIG.get("main_cycles")
 ARCHIVE_PATH = CONFIG.get("archive_path")
 
 ds = archive_day(reftime, day_before)
-ds.isel(time=range(1, 25)).to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
+ds.isel(time=range(1, 25)).load().to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
 ds.close()
-
 accumulate_variables(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc")
 
 # Append newly created accumulated to the year file if it exists:

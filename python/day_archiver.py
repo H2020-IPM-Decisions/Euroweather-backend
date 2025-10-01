@@ -89,13 +89,28 @@ def archive_day(reftime, day_before):
     yesterday = f"all{day_before}{main_cycles[-1]}.nc"
     ds_list = []
     not_first = False
-    for cycle in main_cycles:
+    missing_cycles = 0
+    # Going in the reversed order because we need to add 6 hours from the previous cycle if a cycle is missing
+    for cycle in reversed(main_cycles):
+        
         today_i = f"all{reftime}{cycle}.nc"
-        if not_first:
-            ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1)).drop_vars("forecast_reference_time"))
+        logger.debug(today_i)
+        logger.debug(not_first)
+        logger.debug(missing_cycles)
+        logger.debug(range(1, cycle_nr+1 + missing_cycles))
+        if os.path.isfile(ALL_PATH+today_i):
+            if not_first:
+                ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1 + missing_cycles)).drop_vars("forecast_reference_time"))
+            else:
+                ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1 + missing_cycles)))
+                not_first = True
+            missing_cycles = 0
         else:
-            ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1)))
-            not_first = True
+            logger.warning(f"File {ALL_PATH+today_i} does not exist, skipping this timestep when archiving {reftime}")
+            missing_cycles = 6
+
+    # Reverse the list to have it in chronological order
+    ds_list.reverse()
 
     ds = xr.open_dataset(ALL_PATH+yesterday).isel(time=[cycle_nr-1, cycle_nr]).drop_vars("forecast_reference_time")
 
