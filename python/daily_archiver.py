@@ -38,11 +38,14 @@ main_cycles = CONFIG.get("main_cycles")
 ARCHIVE_PATH = CONFIG.get("archive_path")
 
 ds = archive_day(reftime, day_before)
-ds.isel(time=range(1, 25)).to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
+logger.debug("Creating the NetCDF file")
+ds.isel(time=range(1, 25)).load().to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
 ds.close()
-
+logger.debug("Done creating the NetCDF file")
+logger.debug("Accumulating variables")
 accumulate_variables(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc")
-
+logger.debug("Done accumulating variables")
+logger.debug("Appending to year file")
 # Append newly created accumulated to the year file if it exists:
 # If it does not exist, rename daily_accumulated_REFTIME.nc to YEAR.nc (only happens on 1st of january)
 if os.path.isfile(f"{ARCHIVE_PATH}{YEAR}.nc"):
@@ -54,6 +57,9 @@ if os.path.isfile(f"{ARCHIVE_PATH}{YEAR}.nc"):
 else:
     ds = xr.open_mfdataset([f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc"], lock=False)
 
+logger.debug("Writing to year file")
+
 ds.to_netcdf(f"{ARCHIVE_PATH}{YEAR}.nc_tmp")
 ds.close()
+logger.debug("Done appending to year file")
 os.rename(f"{ARCHIVE_PATH}{YEAR}.nc_tmp", f"{ARCHIVE_PATH}{YEAR}.nc")
