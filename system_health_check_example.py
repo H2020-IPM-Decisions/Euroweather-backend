@@ -20,6 +20,7 @@
 #
 # Usage: Run from the console. Returns 1 if everything is OK, 0 otherwise
 
+import json
 import os
 import sys
 import glob
@@ -27,20 +28,23 @@ import psutil
 import netCDF4 as nc
 from datetime import datetime, timezone, timedelta
 from typing import List
+from dotenv import load_dotenv
+import requests
 
 from smtplib import SMTP
 from email.mime.text import MIMEText
 
+load_dotenv()
+
 SITE_ROOT = os.path.dirname(os.path.realpath(__file__))
 
 # Set this to True if you want to receive email notifications on system.exit(1)
-SEND_EMAIL_ALERT = True
-EMAIL_RECIPIENT = "foobar@test.com"
-EMAIL_SENDER = "barfoo@test.com"
-SMTP_HOST = "smtp.foo.bar"
-DATA_DIR_RELATIVE_PATH = "/python/outdir/"
-
-DEBUG = False
+SEND_EMAIL_ALERT = os.getenv("SEND_EMAIL_ALERT", "False").lower() in ("true", "1", "t")
+EMAIL_RECIPIENT = json.loads(os.getenv("EMAIL_RECIPIENT"))
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+SMTP_HOST = os.getenv("SMTP_HOST")
+DATA_DIR_RELATIVE_PATH = os.getenv("DATA_DIR_RELATIVE_PATH", "/python/outdir/")
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 
 error_msg = []
 exit_code = 0
@@ -132,6 +136,17 @@ if exit_code != 0 and SEND_EMAIL_ALERT:
         conn.sendmail(EMAIL_SENDER, EMAIL_RECIPIENT, msg.as_string())
     finally:
         conn.quit()
+
+use_uptime_kuma = os.getenv("USE_UPTIME_KUMA", "False").lower() in ("true", "1", "t")
+if use_uptime_kuma:
+    status = "up" if exit_code == 0 else "down"
+    message = "OK" if exit_code == 0 else f"FAILED: {msg.as_string()}"
+    response = requests.get(f"{os.getenv('UPTIME_KUMA_HOST')}/api/push/{os.getenv('UPTIME_KUMA_API_KEY')}?status={status}&msg={message}&ping=")
+    if response.status_code != 200:
+        print("Uptime-Kuma check failed")
+        exit_code = 1
+
+
 
 print("System check %s" % ("OK" if exit_code == 0 else "FAILED"))
 
