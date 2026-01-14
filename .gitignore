@@ -8,3 +8,4 @@ app/lockfile
 config.ini
 run_gatekeeper.sh
 system_health_check.py
+.env
