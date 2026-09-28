@@ -15,172 +15,178 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import os
-import bz2
 import ftplib
 import logging
 import datetime
+import posixpath
 from config_and_logger import init_logging
+from icon_eu_remapper import IconEuRemapper
 
 logger = logging.getLogger(__name__)
 init_logging(logger)
 
-month_map = {"Jan": "01", "Feb": "02", "Mar": "03",
-             "Apr": "04", "May": "05", "Jun": "06",
-             "Jul": "07", "Aug": "08", "Sep": "09",
-             "Oct": "10", "Nov": "11", "Dec": "12"}
-
 
 class Poller():
-    def __init__(self, ftp_username, ftp_password, ftp_account, latest_reftime=None,
-                 ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/icon-eu/grib",
-                 variable_base="icon-eu_europe_regular-lat-lon_single-level_",
+    def __init__(self, ftp_username, ftp_password, ftp_account,
+                 ftp_url="opendata.dwd.de", base_ftp_link="/weather/nwp/v1/m/icon-eu/",
                  variable_list=("t_2m", "relhum_2m", "v_10m", "u_10m", "tot_prec", "asob_s"),
                  main_cycles=("00", "06", "12", "18"), max_leadtime="_078_"):
         """
-        Initiates an object with ftp credentials and ftp url.
+        Initiates an object with DWD connection details.
 
         Positional arguements:
-        ftp_username -- [str]
-        ftp_password -- [str]
-        ftp_account -- [str]
+        ftp_username -- FTP username [str]
+        ftp_password -- FTP password [str]
+        ftp_account -- FTP account [str]
 
         Keyword arguments:
-        latest_reftime -- [str]
-        ftp_url -- url to connect to ftp-server [str]
-        variable_base -- base_filename before variable name [str]
+        ftp_url -- DWD FTP host [str]
+        base_ftp_link -- base path of the ICON-EU dataset [str]
         variable_list -- variables to look for[iterable]
         main_cycles -- main model cycles, which produce long forecasts [iterable]
         self.max_leadtime -- Last lead time for main model cycles, to check for readiness [str]
         """
-        self.year = datetime.date.today().year
-        self.month = datetime.date.today().month
         self.ftp_username = ftp_username
         self.ftp_password = ftp_password
         self.ftp_account = ftp_account
         self.base_ftp_link = base_ftp_link
-        self.variable_base = variable_base
         self.ftp_url = ftp_url
         self.variable_list = variable_list
         self.main_cycles = main_cycles
-        self.latest_reftime = latest_reftime
         self.max_leadtime = max_leadtime
         return None
 
+    def _ftp_path(self, *parts):
+        return posixpath.join(self.base_ftp_link, *parts)
+
     def poll(self):
-        # Sets last_date to last january 1st
-        last_date = datetime.datetime(self.year-1, 1, 1, 1, 1)
-        # Define variables found in the iteration
-        latest = None
-        last_month = None
-        last_day = None
-        # Connect to FTP
-        with ftplib.FTP(self.ftp_url, user=self.ftp_username, passwd=self.ftp_password,
-                        acct=self.ftp_account) as ftp:
-            ftp.cwd(self.base_ftp_link)
+        with ftplib.FTP(
+            self.ftp_url,
+            user=self.ftp_username,
+            passwd=self.ftp_password,
+            acct=self.ftp_account,
+        ) as ftp:
+            ftp.cwd(self._ftp_path("p", self.variable_list[0].upper(), "r"))
+            runs = []
+            for run_name in ftp.nlst():
+                try:
+                    run_time = datetime.datetime.strptime(run_name, "%Y-%m-%dT%H:%M")
+                except ValueError:
+                    continue
+                if f"{run_time.hour:02d}" in self.main_cycles:
+                    runs.append((run_time, run_name))
 
-            # Check which reftime is newest
-            run_lines = []
-            # May NOT be rewritten using MLSD, no MLSD implementation on the ftp server
-            ftp.retrlines("LIST", run_lines.append)
-
-            for line in run_lines:
-                # Discard parts of list that is not needed
-                *_, run_name = line.split()
-                # Only check run if it is main cycle
-                if run_name in self.main_cycles:
-                    ftp.cwd(run_name)
-                    variable_lines = []
-                    ftp.retrlines("LIST", variable_lines.append)
-                    for line in variable_lines:
-                        *_, month, day, time, name = line.split()
-                        # check lai, a time-invariant variable
-                        if name == "lai":
-                            month = month_map[month]
-                            hour, minute = time.split(":")
-                            hour, minute = int(hour), int(minute)
-                            new_date = datetime.datetime(self.year, int(month), int(day), hour, minute)
-                            if new_date > last_date:
-                                # Since last_date is always a year behind, latest will be found
-                                last_date = new_date
-                                last_month = month
-                                last_day = day
-                                latest = run_name
-
-                    ftp.cwd("../")
-
-            # If latest is not None, check if latest has been downloaded before
-            # (if self.latest_reftime is not none)
-            if latest is not None:
-                reftime = str(self.year)+last_month+last_day+latest
-                logger.info(f"Found newest folder to be {latest} with forecast ref {reftime}")
-                if reftime == self.latest_reftime:
-                    logger.info("Newest folder is already registered")
-                    return reftime, False
-            else:
-                logger.info("Found no new folders")
+            if not runs:
+                logger.info("Found no main-cycle forecast folders")
                 return "", False
 
-            ftp.cwd(latest)
+            _, latest = max(runs)
+            reftime = datetime.datetime.strptime(
+                latest, "%Y-%m-%dT%H:%M"
+            ).strftime("%Y%m%d%H")
+            logger.info(f"Found newest folder to be {latest} with forecast ref {reftime}")
 
+            max_leadtime = int(self.max_leadtime.strip("_"))
+            last_file = f"PT{max_leadtime:03d}H00M.grib2"
             ready = True
             for variable in self.variable_list:
-                ftp.cwd(variable)
-                last_file = self.variable_base + reftime + self.max_leadtime + variable.upper() +\
-                    ".grib2.bz2"
-                ready &= last_file in ftp.nlst()
-                ftp.cwd("../")
-                if not ready:
-                    break
+                ftp.cwd(self._ftp_path("p", variable.upper(), "r", latest, "s"))
+                variable_ready = last_file in ftp.nlst()
+                ready &= variable_ready
+                if not variable_ready:
+                    logger.info(f"{variable} is not ready for forecast ref {reftime}")
 
         return reftime, ready
 
 
 class Downloader:
-    def __init__(self, poller, outdir):
+    def __init__(
+        self,
+        poller,
+        outdir,
+        variable_base="icon-eu_europe_regular-lat-lon_single-level_",
+        target_resolution=0.0625,
+    ):
         self.ftp_username = poller.ftp_username
         self.ftp_password = poller.ftp_password
         self.ftp_account = poller.ftp_account
         self.ftp_url = poller.ftp_url
         self.base_ftp_link = poller.base_ftp_link
-        self.variable_base = poller.variable_base
+        self.variable_base = variable_base
         self.variable_list = poller.variable_list
         self.main_cycles = poller.main_cycles
         self.max_leadtime = poller.max_leadtime
         self.outdir = outdir
+        self.target_resolution = target_resolution
 
         return None
 
     def download_and_unzip(self, reftime):
-        refhour = reftime[-2:]
-        logger.info(refhour)
-        max_LT = int(self.max_leadtime.strip("_"))
-        with ftplib.FTP(self.ftp_url, user=self.ftp_username, passwd=self.ftp_password,
-                        acct=self.ftp_account) as ftp:
-            ftp.cwd(self.base_ftp_link+"/"+refhour)
-            zipped_files = []
-
-            for variable in self.variable_list:
-                ftp.cwd(variable)
-                for lead_time in range(max_LT+1):
-                    last_file = self.variable_base + reftime + f"_{lead_time:03d}_" +\
-                        variable.upper() + ".grib2.bz2"
-                    outfile = self.outdir + last_file
-                    if outfile not in zipped_files:
-                        ftp.retrbinary("RETR " + last_file, open(outfile, "wb+").write)
-                        zipped_files.append(outfile)
-                    logger.info(last_file)
-                ftp.cwd("../")
-
+        run_time = datetime.datetime.strptime(reftime, "%Y%m%d%H")
+        run_name = run_time.strftime("%Y-%m-%dT%H:00")
+        max_leadtime = int(self.max_leadtime.strip("_"))
         files = []
-        for filepath in zipped_files:
-            zipfile = bz2.BZ2File(filepath)
-            data = zipfile.read()
-            new_filepath = filepath[:-4]
-            with open(new_filepath, 'wb') as outfile:
-                outfile.write(data)
-            if os.path.isfile(new_filepath):
-                os.unlink(filepath)
-                files.append(new_filepath)
-            logger.info(f"unzipped {filepath} to {new_filepath}")
+        coordinate_paths = {
+            variable: os.path.join(
+                self.outdir, f"icon-eu_{reftime}_{variable}.grib2"
+            )
+            for variable in ("CLAT", "CLON")
+        }
+        with ftplib.FTP(
+            self.ftp_url,
+            user=self.ftp_username,
+            passwd=self.ftp_password,
+            acct=self.ftp_account,
+        ) as ftp:
+            try:
+                for variable, coordinate_path in coordinate_paths.items():
+                    ftp.cwd(
+                        posixpath.join(
+                            self.base_ftp_link, "p", variable, "r", run_name, "s"
+                        )
+                    )
+                    with open(coordinate_path, "wb") as outfile:
+                        ftp.retrbinary("RETR PT000H00M.grib2", outfile.write)
+
+                remapper = IconEuRemapper(
+                    coordinate_paths["CLAT"],
+                    coordinate_paths["CLON"],
+                    self.outdir,
+                    self.target_resolution,
+                )
+                for variable in self.variable_list:
+                    ftp.cwd(
+                        posixpath.join(
+                            self.base_ftp_link,
+                            "p",
+                            variable.upper(),
+                            "r",
+                            run_name,
+                            "s",
+                        )
+                    )
+                    for lead_time in range(max_leadtime + 1):
+                        remote_file = f"PT{lead_time:03d}H00M.grib2"
+                        local_file = (
+                            self.variable_base + reftime + f"_{lead_time:03d}_"
+                            + variable.upper() + ".grib2"
+                        )
+                        filepath = os.path.join(self.outdir, local_file)
+                        unstructured_path = f"{filepath}.unstructured"
+                        try:
+                            with open(unstructured_path, "wb") as outfile:
+                                ftp.retrbinary(f"RETR {remote_file}", outfile.write)
+                            remapper.remap(unstructured_path, filepath)
+                        finally:
+                            if os.path.isfile(unstructured_path):
+                                os.unlink(unstructured_path)
+                        files.append(filepath)
+                        logger.info(
+                            f"Downloaded and remapped {remote_file} to {filepath}"
+                        )
+            finally:
+                for coordinate_path in coordinate_paths.values():
+                    if os.path.isfile(coordinate_path):
+                        os.unlink(coordinate_path)
 
         return files, True
