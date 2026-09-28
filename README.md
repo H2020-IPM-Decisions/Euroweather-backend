@@ -100,7 +100,7 @@ Should be run at least 4 times per day
 An example of a crontab entry:
 ```bash
 # m h  dom mon dow   command
-30 * * * * cd /opt/Euroweather-backend/perl; ./run_eu > ./download.log
+30 * * * * cd /opt/Euroweather-backend/python; ./run_eu > ./download.log
 ```
 
 #### 2. daily_archiver.py
