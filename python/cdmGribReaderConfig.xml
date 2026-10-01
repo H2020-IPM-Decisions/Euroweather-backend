@@ -150,7 +150,7 @@
         <grib2 discipline="0" parameterCategory="1" parameterNumber="1" typeOfLevel="103" level="2"/>
         <grib1 indicatorOfParameter="52" gribTablesVersionNo="1" identificationOfOriginatingGeneratingCentre="96" typeOfLevel="105"/>
         <attribute name="standard_name" value="relative_humidity" type="string" />
-        <attribute name="units" value="1" type="string" />
+        <attribute name="units" value="%" type="string" />
     </parameter>
     <parameter name="x_wind_10m" type="float">
         <grib1 indicatorOfParameter="165" gribTablesVersionNo="128" identificationOfOriginatingGeneratingCentre="98">
