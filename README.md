@@ -32,7 +32,7 @@ Authors: Johannes Tobiassen Langvatn (Met Norway) and Tor-Einar Skog (NIBIO)
 
 By using the hourly forecasts provided as [open data from Deutscher Wetterdienst (DWD)](https://www.dwd.de/EN/ourservices/opendata/opendata.html) and storing them as "historical weather data", we have synthetic weather data with 7 km resolution across the continent. 
 
-The data are downloaded 4 times per day from [DWD](http://opendata.dwd.de/weather/nwp/icon-eu/grib/). The grib2 files are converted into NetCDF files containing 
+The data are downloaded 4 times per day from [DWD](https://opendata.dwd.de/weather/nwp/v1/m/icon-eu/). The grib2 files are converted into NetCDF files containing
 only the parameters relevant for IPM Decisions. These are 
 
 * Temperature (at 2m in &deg;C)
@@ -72,26 +72,24 @@ These aggregate values are placed in these files:
 ## Configuring the system
 ### Software requirements
 * Ubuntu Linux, tested with v 22
-* Python3 including xarray/numpy and netcdf4
-* [Fimex](https://github.com/metno/fimex)
+* Python3 including xarray, NumPy, netCDF4, SciPy and ecCodes
+* [Fimex](https://github.com/metno/fimex) 2.4 or newer
 
 ### Hardware requirements
 * SSD (preferably) disk with at least 2TB of storage space (for one season worth of NetCDF weather data files)
 
 
 #### Installing Fimex and Python requirements
-Example using Ubuntu
+Example using conda-forge
 
 ``` bash
-add-apt-repository ppa:met-norway/fimex
-apt-get update
-apt-get install --assume-yes fimex-1.6-bin fimex-1.6-share libfimex-1.6-0 python3-pyfimex0-1.6
+conda install --channel conda-forge "fimex>=2.4" scipy eccodes
 ```
 
 From the root folder of the source code:
 
 ``` bash
-sudo pip3 install -r requirements.xt
+sudo pip3 install -r requirements.txt
 ```
 
 ### Running the app
@@ -102,7 +100,7 @@ Should be run at least 4 times per day
 An example of a crontab entry:
 ```bash
 # m h  dom mon dow   command
-30 * * * * cd /opt/Euroweather-backend/perl; ./run_eu > ./download.log
+30 * * * * cd /opt/Euroweather-backend/python; ./run_eu > ./download.log
 ```
 
 #### 2. daily_archiver.py

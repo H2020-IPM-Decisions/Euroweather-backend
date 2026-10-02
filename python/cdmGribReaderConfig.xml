@@ -150,25 +150,25 @@
         <grib2 discipline="0" parameterCategory="1" parameterNumber="1" typeOfLevel="103" level="2"/>
         <grib1 indicatorOfParameter="52" gribTablesVersionNo="1" identificationOfOriginatingGeneratingCentre="96" typeOfLevel="105"/>
         <attribute name="standard_name" value="relative_humidity" type="string" />
-        <attribute name="units" value="1" type="string" />
+        <attribute name="units" value="%" type="string" />
     </parameter>
     <parameter name="x_wind_10m" type="float">
         <grib1 indicatorOfParameter="165" gribTablesVersionNo="128" identificationOfOriginatingGeneratingCentre="98">
           <extraKey name="localDefinitionNumber" value="1" /> <!-- just for testing -->
         </grib1>
-        <attribute name="_FillValue" value="9.9692099683868690e+36f" type="float" />
+        <attribute name="_FillValue" value="9.9692099683868690e+36" type="float" />
         <attribute name="standard_name" value="x_wind" type="string" />
         <attribute name="units" value="m/s" type="string" />
     </parameter>
     <parameter name="y_wind_10m" type="float">
         <grib1 indicatorOfParameter="166" gribTablesVersionNo="128" identificationOfOriginatingGeneratingCentre="98"/>
-        <attribute name="_FillValue" value="9.9692099683868690e+36f" type="float" />
+        <attribute name="_FillValue" value="9.9692099683868690e+36" type="float" />
         <attribute name="standard_name" value="y_wind" type="string" />
         <attribute name="units" value="m/s" type="string" />
     </parameter>
     <parameter name="wind_speed_10m" type="float">
       <grib1 indicatorOfParameter="245" gribTablesVersionNo="140"/>
-      <attribute name="_FillValue" value="9.9692099683868690e+36f" type="float" />
+      <attribute name="_FillValue" value="9.9692099683868690e+36" type="float" />
       <attribute name="units" value="m/s" type="string"/>
       <attribute name="standard_name" value="wind_speed" type="string"/>
     </parameter>

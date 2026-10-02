@@ -17,7 +17,9 @@
 """
 import os
 import logging
+import shutil
 import subprocess
+import sys
 from poller_and_downloader import Poller, Downloader
 from config_and_logger import init_logging, init_config
 from forecaster import forecaster, forecast_archiver
@@ -30,29 +32,58 @@ ALL_PATH = CONFIG.get("all_path")
 ARCHIVE_PATH = CONFIG.get("archive_path")
 logger.debug(f"\nAll path is: {ALL_PATH}\nArchive path is: {ARCHIVE_PATH}")
 
-os.makedirs(ALL_PATH+"grib", exist_ok=True)
-dwd_poller = Poller("Anonymous", "", "", main_cycles=CONFIG.get("main_cycles"))
+grib_dir = os.path.join(ALL_PATH, "grib")
+os.makedirs(grib_dir, exist_ok=True)
+dwd_poller = Poller(
+    "Anonymous",
+    "",
+    "",
+    main_cycles=CONFIG.get("main_cycles"),
+    base_ftp_link="/weather/nwp/v1/m/icon-eu/",
+)
 reftime, ready = dwd_poller.poll()
 logger.info(f"Reftime was found to be {reftime} with status {ready}")
 if ready:
-    DOWNLOADED = False
-    dwd_downloader = Downloader(
-        dwd_poller, ALL_PATH+"grib/")
-    if not os.path.isfile(ALL_PATH + f"all{reftime}.nc"):
-        DOWNLOADED = dwd_downloader.download_and_unzip(reftime)
+    downloaded_files = []
+    downloaded = False
+    dwd_downloader = Downloader(dwd_poller, grib_dir)
+    all_file = os.path.join(ALL_PATH, f"all{reftime}.nc")
+    if not os.path.isfile(all_file):
+        downloaded_files, downloaded = dwd_downloader.download_and_unzip(reftime)
 
-    if DOWNLOADED:
+    if downloaded:
+        forecast_file = os.path.join(ALL_PATH, f"forecast_{reftime}.grib2")
+        temporary_file = os.path.join(ALL_PATH, f"all{reftime}_tmp.nc")
         logger.info("Catting forecast-gribs")
-        subprocess.run(f"cat {ALL_PATH}grib/*{reftime}*.grib2 > {ALL_PATH}forecast_{reftime}.grib2",
-                       shell=True, check=True)
+        with open(forecast_file, "wb") as combined_file:
+            for downloaded_file in downloaded_files:
+                with open(downloaded_file, "rb") as input_file:
+                    shutil.copyfileobj(input_file, combined_file)
+
         logger.info("Converting from grib to netcdf")
-        subprocess.run(f"fimex-1.9 --input.file {ALL_PATH}forecast_{reftime}.grib2 --input.config " +
-                       f"{base_path}cdmGribReaderConfig.xml --output.file {ALL_PATH}all{reftime}_tmp.nc",
-                       shell=True, check=True)
-        forecaster(f"{ALL_PATH}all{reftime}_tmp.nc", f"{ALL_PATH}all{reftime}.nc")
-        os.remove(f"{ALL_PATH}all{reftime}_tmp.nc")
-        logger.info(f"Readied the forecast at {ALL_PATH}all{reftime}.nc")
-        forecast_archiver(f"{ALL_PATH}all{reftime}.nc", reftime)
+        fimex_environment = os.environ.copy()
+        udunits_path = os.path.join(
+            sys.prefix, "share", "udunits", "udunits2.xml"
+        )
+        if os.path.isfile(udunits_path):
+            fimex_environment.setdefault("UDUNITS2_XML_PATH", udunits_path)
+        subprocess.run(
+            [
+                "fimex",
+                "--input.file",
+                forecast_file,
+                "--input.config",
+                os.path.join(base_path, "cdmGribReaderConfig.xml"),
+                "--output.file",
+                temporary_file,
+            ],
+            check=True,
+            env=fimex_environment,
+        )
+        forecaster(temporary_file, all_file)
+        os.remove(temporary_file)
+        logger.info(f"Readied the forecast at {all_file}")
+        forecast_archiver(all_file, reftime)
 
     else:
         logger.info("Forecast was ready, but not downloaded")
