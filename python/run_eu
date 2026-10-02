@@ -69,7 +69,7 @@ if ready:
             fimex_environment.setdefault("UDUNITS2_XML_PATH", udunits_path)
         subprocess.run(
             [
-                "fimex",
+                "fimex-2.4",
                 "--input.file",
                 forecast_file,
                 "--input.config",
