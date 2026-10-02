@@ -20,6 +20,7 @@ import sys
 import logging
 import numpy as np
 import xarray as xr
+from contextlib import ExitStack
 from datetime import timedelta, date
 from config_and_logger import init_logging, init_config
 
@@ -30,9 +31,34 @@ CONFIG = init_config()
 
 ALL_PATH = CONFIG.get("all_path")
 ARCHIVE_PATH = CONFIG.get("archive_path")
-archive_cycles = CONFIG.get("archive_cycles")
 main_cycles = CONFIG.get("main_cycles")
-cycle_nr = len(archive_cycles)
+GRID_MAPPING_VARIABLE = "projection_regular_ll"
+
+
+def archive_netcdf_encoding(dataset):
+    if "time" not in dataset.variables:
+        return {}
+    return {
+        "time": {
+            "dtype": "float64",
+            "units": "seconds since 1970-01-01 00:00:00",
+            "calendar": "proleptic_gregorian",
+            "_FillValue": None,
+        }
+    }
+
+
+def write_netcdf_atomic(dataset, output_path):
+    temporary_path = f"{output_path}.tmp"
+    try:
+        dataset.to_netcdf(
+            temporary_path,
+            encoding=archive_netcdf_encoding(dataset),
+        )
+        os.replace(temporary_path, output_path)
+    finally:
+        if os.path.isfile(temporary_path):
+            os.unlink(temporary_path)
 
 
 def daterange(startdate, enddate):
@@ -52,93 +78,164 @@ def date_from_reftime(reftime):
     return date(year, month, day)
 
 
+def available_cycle_paths(reftime, cycles=None):
+    if cycles is None:
+        cycles = main_cycles
+    return [
+        os.path.join(ALL_PATH, f"all{reftime}{cycle}.nc")
+        for cycle in cycles
+        if os.path.isfile(
+            os.path.join(ALL_PATH, f"all{reftime}{cycle}.nc")
+        )
+    ]
+
+
+def normalize_grid_mapping(dataset):
+    if GRID_MAPPING_VARIABLE not in dataset:
+        return dataset
+    attributes = dataset[GRID_MAPPING_VARIABLE].attrs
+    dataset = dataset.drop_vars(GRID_MAPPING_VARIABLE)
+    dataset[GRID_MAPPING_VARIABLE] = xr.DataArray(
+        np.int32(0),
+        attrs=attributes,
+    )
+    return dataset
+
+
 def accumulate_variables(input_netcdf_path, output_netcdf_path, forecast_drop=True):
     """
     Accumulates variables for use in EUROWEATHER (2)
     Assumes wind_speed instead of x_wind_10m and y_wind_10m
     """
-    ds = xr.open_dataset(input_netcdf_path)
+    with xr.open_dataset(input_netcdf_path) as ds:
+        daily_time = ds.time.values[0]
+        ds["air_temperature_2m_max"] = ds["air_temperature_2m"].max(dim="time")
+        ds["air_temperature_2m_min"] = ds["air_temperature_2m"].min(dim="time")
+        ds["air_temperature_2m_mean"] = ds["air_temperature_2m"].mean(dim="time")
 
-    ds["air_temperature_2m_max"] = ds["air_temperature_2m"].max(dim="time")
-    ds["air_temperature_2m_min"] = ds["air_temperature_2m"].min(dim="time")
-    ds["air_temperature_2m_mean"] = ds["air_temperature_2m"].mean(dim="time")
+        ds["relative_humidity_2m_mean"] = ds["relative_humidity_2m"].mean(
+            dim="time"
+        )
+        ds["relative_humidity_2m_max"] = ds["relative_humidity_2m"].max(dim="time")
 
-    ds["relative_humidity_2m_mean"] = ds["relative_humidity_2m"].mean(dim="time")
-    ds["relative_humidity_2m_max"] = ds["relative_humidity_2m"].max(dim="time")
+        ds["total_precipitation"] = ds["hourly_precipitation"].sum(dim="time")
+        ds["mean_wind_speed_10m"] = ds["wind_speed_10m"].mean(dim="time")
 
-    ds["total_precipitation"] = ds["hourly_precipitation"].sum(dim="time")
+        ds["daily_surface_net_downward_shortwave_flux"] = (
+            ds["surface_net_downward_shortwave_flux"].sum(dim="time") * 0.0036
+        )
+        ds["daily_surface_net_downward_shortwave_flux"].attrs["units"] = "MJ/m^2"
+        ds = ds.drop_vars(
+            [
+                "air_temperature_2m",
+                "relative_humidity_2m",
+                "hourly_precipitation",
+                "wind_speed_10m",
+                "surface_net_downward_shortwave_flux",
+            ]
+        )
+        if forecast_drop:
+            ds = ds.drop_vars(["forecast_reference_time"], errors="ignore")
+        ds = ds.drop_dims("time").expand_dims(time=[daily_time])
+        ds = normalize_grid_mapping(ds)
+        write_netcdf_atomic(ds, output_netcdf_path)
 
-    ds["mean_wind_speed_10m"] = ds["wind_speed_10m"].mean(dim="time")
 
-    # Converts W/m2 to MJ/m2
-    ds["daily_surface_net_downward_shortwave_flux"] = ds["surface_net_downward_shortwave_flux"].sum(dim="time") * 0.0036
-    ds["daily_surface_net_downward_shortwave_flux"].attrs["units"] = "MJ/m^2"
-    ds = ds.drop_vars(["air_temperature_2m", "relative_humidity_2m", "hourly_precipitation",
-                       "wind_speed_10m", "surface_net_downward_shortwave_flux"])
-    if forecast_drop is True:
-        ds = ds.drop_vars(["forecast_reference_time"])
-    ds.isel(time=[0]).to_netcdf(output_netcdf_path)
-    ds.close()
-
-
-def archive_day(reftime, day_before):
+def archive_day(reftime, day_before, output_path=None):
     """
     Archives a day of forecasted weather with date reftime (formatted as a string: YYYYMMDD),
-    and the day_before (reftime of the day before)
+    and the day_before (reftime of the day before). When output_path is given,
+    streams the result to that file instead of loading it into memory.
     """
-    yesterday = f"all{day_before}{main_cycles[-1]}.nc"
-    ds_list = []
-    not_first = False
-    missing_cycles = 0
-    # Going in the reversed order because we need to add 6 hours from the previous cycle if a cycle is missing
-    for cycle in reversed(main_cycles):
-        
-        today_i = f"all{reftime}{cycle}.nc"
-        logger.debug(today_i)
-        logger.debug(not_first)
-        logger.debug(missing_cycles)
-        logger.debug(range(1, cycle_nr+1 + missing_cycles))
-        if os.path.isfile(ALL_PATH+today_i):
-            if not_first:
-                ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1 + missing_cycles)).drop_vars("forecast_reference_time"))
+    available_paths = available_cycle_paths(day_before)
+    available_paths.extend(available_cycle_paths(reftime))
+    if not available_paths:
+        raise FileNotFoundError(f"No forecast files are available for {reftime}")
+
+    with ExitStack() as stack:
+        target_date = np.datetime64(date_from_reftime(reftime))
+        hourly_datasets = {}
+        for path in available_paths:
+            dataset = stack.enter_context(xr.open_dataset(path))
+            if "hourly_precipitation" not in dataset:
+                raise ValueError(
+                    f"{path} has not been processed by forecaster"
+                )
+            dataset = dataset.drop_vars(
+                ["forecast_reference_time"], errors="ignore"
+            )
+            dataset = dataset.isel(time=slice(1, None))
+            for index, time_value in enumerate(dataset.time.values):
+                if np.datetime64(time_value, "D") == target_date:
+                    hourly_datasets[np.datetime64(time_value, "ns")] = (
+                        dataset.isel(time=[index])
+                    )
+
+        if len(hourly_datasets) != 24:
+            raise ValueError(
+                f"Expected 24 hourly values for {reftime}, "
+                f"found {len(hourly_datasets)}"
+            )
+
+        selected = xr.concat(
+            [hourly_datasets[time] for time in sorted(hourly_datasets)],
+            dim="time",
+            data_vars="minimal",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        archived = selected.drop_vars(
+            ["total_precipitation", "x_wind_10m", "y_wind_10m"],
+            errors="ignore",
+        )
+        archived = normalize_grid_mapping(archived)
+        if output_path is not None:
+            write_netcdf_atomic(archived, output_path)
+            return None
+        return archived.load()
+
+
+def append_daily_to_year(daily_path, year_path):
+    temporary_path = f"{year_path}.tmp"
+    appended = True
+    try:
+        with ExitStack() as stack:
+            daily = normalize_grid_mapping(
+                stack.enter_context(xr.open_dataset(daily_path))
+            )
+            datasets = []
+            if os.path.isfile(year_path):
+                historical = normalize_grid_mapping(
+                    stack.enter_context(xr.open_dataset(year_path))
+                )
+                if np.isin(daily.time.values, historical.time.values).any():
+                    appended = False
+                datasets.append(historical)
+            if appended:
+                datasets.append(daily)
+
+            if len(datasets) == 1:
+                combined = datasets[0]
             else:
-                ds_list.append(xr.open_dataset(ALL_PATH+today_i).isel(time=range(1, cycle_nr+1 + missing_cycles)))
-                not_first = True
-            missing_cycles = 0
-        else:
-            logger.warning(f"File {ALL_PATH+today_i} does not exist, skipping this timestep when archiving {reftime}")
-            missing_cycles = 6
+                combined = xr.concat(
+                    datasets,
+                    dim="time",
+                    data_vars="minimal",
+                    coords="minimal",
+                    compat="override",
+                    join="exact",
+                ).sortby("time")
+            combined.to_netcdf(
+                temporary_path,
+                encoding=archive_netcdf_encoding(combined),
+            )
 
-    # Reverse the list to have it in chronological order
-    ds_list.reverse()
-
-    ds = xr.open_dataset(ALL_PATH+yesterday).isel(time=[cycle_nr-1, cycle_nr]).drop_vars("forecast_reference_time")
-
-    out_ds = xr.merge([ds]+ds_list)
-    out_ds["hourly_precipitation"] = out_ds["total_precipitation"].diff(dim="time")
-    # Convert temperature from Kelvin to Celsius
-    if out_ds["air_temperature_2m"].attrs["units"] == "K":
-        out_ds["air_temperature_2m"].values = out_ds["air_temperature_2m"].values - 273.15
-        out_ds["air_temperature_2m"].attrs["units"] = "degC"
-    # Convert componental wind speed to wind speed
-    out_ds["wind_speed_10m"] = np.sqrt(out_ds["x_wind_10m"]**2 + out_ds["y_wind_10m"]**2)
-
-    temp = []
-    for index, _ in enumerate(out_ds.time):
-        # Reverts the non-accumulated (first hours) to original value
-        # Must be -2 since index begins at 00, and we have want to restore 01
-        # and time=0 maps to hour 23 (i.e time=1 -> hour 00 and time=2 hour 01)
-        if (index-2)%cycle_nr == 0:
-            temp_value = out_ds["total_precipitation"].isel(time=index).values
-        else:
-            temp_value = out_ds["hourly_precipitation"].isel(time=index).values
-        temp_value = np.where(temp_value < 0, 0, temp_value)
-        temp.append(temp_value)
-
-    out_ds["hourly_precipitation"].values = temp
-    out_ds = out_ds.drop_vars(["total_precipitation", "x_wind_10m", "y_wind_10m"])
-    ds.close()
-    return out_ds
+        os.replace(temporary_path, year_path)
+        return appended
+    finally:
+        if os.path.isfile(temporary_path):
+            os.unlink(temporary_path)
 
 
 if __name__ == "__main__":
@@ -154,9 +251,11 @@ if __name__ == "__main__":
         if os.path.isfile(f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc"):
             day_before = reftime
             continue
-        ds = archive_day(reftime, day_before)
-        ds.isel(time=range(1, 25)).to_netcdf(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc")
-        ds.close()
+        archive_day(
+            reftime,
+            day_before,
+            output_path=f"{ARCHIVE_PATH}daily_archive_{reftime}.nc",
+        )
 
         accumulate_variables(f"{ARCHIVE_PATH}daily_archive_{reftime}.nc", f"{ARCHIVE_PATH}daily_accumulated_{reftime}.nc")
         day_before = reftime
