@@ -85,6 +85,10 @@ Example using conda-forge
 ``` bash
 conda install --channel conda-forge "fimex>=2.4" scipy eccodes
 ```
+Install Fimex using apt:
+``` bash
+sudo apt install fimex-2.4-bin
+```
 
 From the root folder of the source code:
 
