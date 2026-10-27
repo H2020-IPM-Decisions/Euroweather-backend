@@ -85,6 +85,10 @@ Example using conda-forge
 ``` bash
 conda install --channel conda-forge "fimex>=2.4" scipy eccodes
 ```
+Install Fimex using apt:
+``` bash
+sudo apt install fimex-2.4-bin
+```
 
 From the root folder of the source code:
 
@@ -106,11 +110,23 @@ An example of a crontab entry:
 #### 2. daily_archiver.py
 Should be run at least once per day, after the last daily data has been produced by DWD, so shortly after midnight.
 
+For yesterday's hourly archive, `main_cycles` defines which forecast runs are eligible. At each timestamp, lead hours listed in `archive_cycles` (normally `_001_` through `_006_`) are preferred, choosing the shortest lead among them. If none is available, the shortest positive lead from an older eligible run is used instead. Selection is independent of the order of `main_cycles`. The archive must contain all 24 timestamps, 00-23 UTC; lead zero is excluded because its hourly precipitation and radiation are undefined. Midnight therefore comes from a previous-day run. With every cycle available, this boundary convention uses the previous day's 18 UTC run plus the current day's four runs; a single previous-day run can supply all 24 timestamps if the other runs are missing.
+
 An example of a crontab entry:
 ```bash
 # m h  dom mon dow   command
 0 1 * * * /opt/Euroweather-backend/python/daily_archiver.py
 ```
+
+With no arguments, the script processes yesterday. To backfill an inclusive date range, run:
+
+```bash
+python python/daily_archiver.py 20260921 20261026
+```
+
+Each complete day is rebuilt from available forecasts and appended to its year's archive. Days with no source forecasts or incomplete hourly coverage are skipped with a warning, so later dates are still processed. Other errors stop execution. Dates already present in the yearly archive are not replaced.
+
+When a new daily file uses a different spatial grid, the yearly archive retains the union of the latitude and longitude coordinates. Values remain at their original coordinates without interpolation; dates without coverage at a coordinate have missing values there.
 
 ### Data maintenance
 `daily_archiver.py` automatically generates new files - such as YYYY.nc, but it deletes nothing. The application mananger must archive data as they see fit. A yearly maintenance recommendation could be:
