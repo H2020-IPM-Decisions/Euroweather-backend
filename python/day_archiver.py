@@ -21,7 +21,7 @@ import logging
 import numpy as np
 import xarray as xr
 from contextlib import ExitStack
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
 from config_and_logger import init_logging, init_config
 
 
@@ -33,6 +33,11 @@ ALL_PATH = CONFIG.get("all_path")
 ARCHIVE_PATH = CONFIG.get("archive_path")
 main_cycles = CONFIG.get("main_cycles")
 GRID_MAPPING_VARIABLE = "projection_regular_ll"
+NETCDF_CHUNKS = {"time": 1}
+
+
+class IncompleteDayError(ValueError):
+    pass
 
 
 def archive_netcdf_encoding(dataset):
@@ -107,7 +112,7 @@ def accumulate_variables(input_netcdf_path, output_netcdf_path, forecast_drop=Tr
     Accumulates variables for use in EUROWEATHER (2)
     Assumes wind_speed instead of x_wind_10m and y_wind_10m
     """
-    with xr.open_dataset(input_netcdf_path) as ds:
+    with xr.open_dataset(input_netcdf_path, chunks=NETCDF_CHUNKS) as ds:
         daily_time = ds.time.values[0]
         ds["air_temperature_2m_max"] = ds["air_temperature_2m"].max(dim="time")
         ds["air_temperature_2m_min"] = ds["air_temperature_2m"].min(dim="time")
@@ -143,10 +148,16 @@ def accumulate_variables(input_netcdf_path, output_netcdf_path, forecast_drop=Tr
 
 def archive_day(reftime, day_before, output_path=None):
     """
-    Archives a day of forecasted weather with date reftime (formatted as a string: YYYYMMDD),
-    and the day_before (reftime of the day before). When output_path is given,
-    streams the result to that file instead of loading it into memory.
+    Archive timestamps 00-23 for reftime (YYYYMMDD) using configured main cycles.
+    Prefer archive_cycles lead hours, then the shortest positive lead available.
+    Older runs from day_before fill gaps when target-day cycles are missing.
+    With output_path, stream the result to disk instead of loading it into memory.
     """
+    preferred_leads = {
+        int(cycle.strip("_")) for cycle in CONFIG["archive_cycles"]
+    }
+    if not preferred_leads or any(lead <= 0 for lead in preferred_leads):
+        raise ValueError("archive_cycles must contain positive forecast lead hours")
     available_paths = available_cycle_paths(day_before)
     available_paths.extend(available_cycle_paths(reftime))
     if not available_paths:
@@ -155,7 +166,12 @@ def archive_day(reftime, day_before, output_path=None):
     with ExitStack() as stack:
         target_date = np.datetime64(date_from_reftime(reftime))
         hourly_datasets = {}
+        hourly_priorities = {}
         for path in available_paths:
+            run_time = np.datetime64(
+                datetime.strptime(os.path.basename(path)[3:-3], "%Y%m%d%H"),
+                "ns",
+            )
             dataset = stack.enter_context(xr.open_dataset(path))
             if "hourly_precipitation" not in dataset:
                 raise ValueError(
@@ -164,16 +180,27 @@ def archive_day(reftime, day_before, output_path=None):
             dataset = dataset.drop_vars(
                 ["forecast_reference_time"], errors="ignore"
             )
-            dataset = dataset.isel(time=slice(1, None))
             for index, time_value in enumerate(dataset.time.values):
-                if np.datetime64(time_value, "D") == target_date:
-                    hourly_datasets[np.datetime64(time_value, "ns")] = (
-                        dataset.isel(time=[index])
-                    )
+                time_value = np.datetime64(time_value, "ns")
+                if np.datetime64(time_value, "D") != target_date:
+                    continue
+                lead = (time_value - run_time) / np.timedelta64(1, "h")
+                if lead <= 0:
+                    continue
+                priority = (lead not in preferred_leads, lead)
+                if (
+                    time_value not in hourly_priorities
+                    or priority < hourly_priorities[time_value]
+                ):
+                    hourly_priorities[time_value] = priority
+                    hourly_datasets[time_value] = dataset.isel(time=[index])
 
-        if len(hourly_datasets) != 24:
-            raise ValueError(
-                f"Expected 24 hourly values for {reftime}, "
+        expected_times = target_date.astype("datetime64[ns]") + (
+            np.arange(24) * np.timedelta64(1, "h")
+        )
+        if set(hourly_datasets) != set(expected_times):
+            raise IncompleteDayError(
+                f"Expected 24 hourly values at 00-23 UTC for {reftime}, "
                 f"found {len(hourly_datasets)}"
             )
 
@@ -224,7 +251,7 @@ def append_daily_to_year(daily_path, year_path):
                     data_vars="minimal",
                     coords="minimal",
                     compat="override",
-                    join="exact",
+                    join="outer",
                 ).sortby("time")
             combined.to_netcdf(
                 temporary_path,

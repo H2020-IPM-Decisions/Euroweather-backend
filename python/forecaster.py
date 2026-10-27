@@ -1,4 +1,5 @@
 import os
+import logging
 import xarray as xr
 import numpy as np
 
@@ -7,6 +8,7 @@ from datetime import timedelta
 from day_archiver import (
     ALL_PATH,
     ARCHIVE_PATH,
+    NETCDF_CHUNKS,
     accumulate_variables,
     available_cycle_paths,
     archive_netcdf_encoding,
@@ -17,22 +19,27 @@ from day_archiver import (
 
 
 FORECAST_DROP_VARIABLES = ["total_precipitation", "x_wind_10m", "y_wind_10m"]
+logger = logging.getLogger(__name__)
 
 
-def _without_forecast_metadata(dataset):
+def _without_forecast_metadata(dataset, drop_initial_accumulation=True):
     dataset = dataset.drop_vars(["forecast_reference_time"], errors="ignore")
-    if "hourly_precipitation" in dataset and dataset.sizes.get("time", 0) > 1:
+    if (
+        drop_initial_accumulation
+        and "hourly_precipitation" in dataset
+        and dataset.sizes.get("time", 0) > 1
+    ):
         dataset = dataset.isel(time=slice(1, None))
     return dataset
 
 
-def _select_date(dataset, target_date):
+def _select_date(dataset, target_date, require_complete=True):
     date_string = target_date.strftime("%Y%m%d")
     selected = dataset.where(
         dataset.time.dt.strftime("%Y%m%d") == date_string,
         drop=True,
     )
-    if selected.sizes.get("time", 0) != 24:
+    if require_complete and selected.sizes.get("time", 0) != 24:
         raise ValueError(
             f"Expected 24 hourly values for {date_string}, "
             f"found {selected.sizes.get('time', 0)}"
@@ -67,23 +74,32 @@ def _write_year_with_forecast(year, daily_paths):
     historical_path = os.path.join(ARCHIVE_PATH, f"{year}.nc")
     output_path = os.path.join(ARCHIVE_PATH, f"{year}_with_forecast.nc")
     temporary_path = f"{output_path}.tmp"
-    input_paths = []
-    if os.path.isfile(historical_path):
-        input_paths.append(historical_path)
-    input_paths.extend(daily_paths)
 
     try:
         with ExitStack() as stack:
-            datasets = [
+            daily_datasets = [
                 _normalize_daily_time(
-                    stack.enter_context(xr.open_dataset(path))
+                    stack.enter_context(
+                        xr.open_dataset(path, chunks=NETCDF_CHUNKS)
+                    )
                 )
-                for path in input_paths
+                for path in daily_paths
             ]
+            datasets = []
+            if os.path.isfile(historical_path):
+                datasets.append(
+                    stack.enter_context(
+                        xr.open_dataset(
+                            historical_path,
+                            chunks=NETCDF_CHUNKS,
+                        )
+                    )
+                )
+            datasets.extend(daily_datasets)
             forecast_times = np.concatenate(
                 [
                     dataset.time.values
-                    for dataset in datasets[-len(daily_paths):]
+                    for dataset in daily_datasets
                 ]
             )
             combined = xr.concat(
@@ -92,7 +108,7 @@ def _write_year_with_forecast(year, daily_paths):
                 data_vars="minimal",
                 coords="minimal",
                 compat="override",
-                join="exact",
+                join="outer",
             ).sortby("time")
 
             _, reverse_indices = np.unique(
@@ -130,8 +146,10 @@ def forecast_archiver(inpath, reftime):
     Archive daily aggregates for today and the next two days.
 
     Today's hours are selected from all available model cycles, preferring the
-    newest cycle for duplicate valid times. Future days come from the current
-    model run.
+    newest cycle for duplicate valid times. An existing complete archive is
+    used to backfill earlier hours if source cycles have been removed. After a
+    gap in source data, an incomplete current day is skipped rather than
+    publishing invalid aggregates. Future days come from the current model run.
     """
     date_today = date_from_reftime(reftime)
     cycle = reftime[-2:]
@@ -150,15 +168,34 @@ def forecast_archiver(inpath, reftime):
         cycle_paths.append(inpath)
 
     target_dates = [date_today + timedelta(days=offset) for offset in range(3)]
-    daily_archive_paths = []
+    daily_archives = []
     with ExitStack() as stack:
-        cycle_datasets = [
+        existing_today_path = os.path.join(
+            ARCHIVE_PATH,
+            f"daily_archive_{date_today.strftime('%Y%m%d')}.nc",
+        )
+        cycle_datasets = []
+        if os.path.isfile(existing_today_path):
+            cycle_datasets.append(
+                _without_forecast_metadata(
+                    stack.enter_context(
+                        xr.open_dataset(
+                            existing_today_path,
+                            chunks=NETCDF_CHUNKS,
+                        )
+                    ),
+                    drop_initial_accumulation=False,
+                )
+            )
+        cycle_datasets.extend(
             _without_forecast_metadata(
-                stack.enter_context(xr.open_dataset(path))
+                stack.enter_context(
+                    xr.open_dataset(path, chunks=NETCDF_CHUNKS)
+                )
             )
             for path in cycle_paths
             if os.path.isfile(path)
-        ]
+        )
         if not cycle_datasets:
             raise FileNotFoundError("No forecast datasets are available to archive")
 
@@ -177,16 +214,28 @@ def forecast_archiver(inpath, reftime):
         combined = combined.isel(time=keep_indices).sortby("time")
 
         for target_date in target_dates:
-            daily_archive_paths.append(
-                _write_daily_archive(
-                    _select_date(combined, target_date), target_date
+            selected = _select_date(
+                combined,
+                target_date,
+                require_complete=target_date != date_today,
+            )
+            if selected.sizes.get("time", 0) != 24:
+                logger.warning(
+                    "Skipping incomplete daily forecast archive for %s: "
+                    "expected 24 hourly values, found %s",
+                    target_date.strftime("%Y%m%d"),
+                    selected.sizes.get("time", 0),
+                )
+                continue
+            daily_archives.append(
+                (
+                    target_date,
+                    _write_daily_archive(selected, target_date),
                 )
             )
 
     daily_accumulated_paths = []
-    for target_date, daily_archive_path in zip(
-        target_dates, daily_archive_paths
-    ):
+    for target_date, daily_archive_path in daily_archives:
         accumulated_path = os.path.join(
             ARCHIVE_PATH,
             f"daily_accumulated_{target_date.strftime('%Y%m%d')}.nc",
